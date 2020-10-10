@@ -1,8 +1,6 @@
 use std::fmt::Debug;
 
-use influx_contracts::Measurement;
-use reqwest::Response;
-pub use client;
+pub use client::InfluxClient;
 
 pub mod client;
 

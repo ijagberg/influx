@@ -292,18 +292,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "influx-client"
+name = "influx"
 version = "0.1.0"
 dependencies = [
- "influx-contracts",
  "reqwest",
  "tokio",
 ]
-
-[[package]]
-name = "influx-contracts"
-version = "0.1.0"
-source = "git+https://github.com/ijagberg/influx-contracts.git?branch=main#1d7b99f38a5435dcac4f438045dcf42035d5bd9c"
 
 [[package]]
 name = "iovec"

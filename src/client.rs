@@ -1,3 +1,7 @@
+use reqwest::Response;
+
+use crate::Measurement;
+
 pub struct InfluxClient {
     url: String,
     key: String,
