@@ -1,6 +1,4 @@
-use influx::{
-    query::Function, query::GroupMode, query::OnEmpty, query::Query, InfluxClient, Measurement,
-};
+use influx::{query::Function, query::GroupMode, query::OnEmpty, query::Query, InfluxClient};
 
 #[tokio::main]
 async fn main() {

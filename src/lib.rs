@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn measurement() {
-        let example_measurement = Measurement::builder(String::from("example_measurement"))
+        Measurement::builder(String::from("example_measurement"))
             .with_tag(String::from("tag_1"), String::from("tag_value_1"))
             .with_tag(String::from("tag_2"), String::from("tag_value_2"))
             .with_field(String::from("field_1"), Field::Bool(true))
