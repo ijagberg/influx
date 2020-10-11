@@ -1,6 +1,6 @@
 use reqwest::Response;
 
-use crate::Measurement;
+use crate::{query::Query, Measurement};
 
 pub struct InfluxClient {
     url: String,
@@ -37,6 +37,22 @@ impl InfluxClient {
                 self.url, self.org, bucket
             ))
             .header("Authorization", format!("Token {}", &self.key))
+            .body(payload)
+            .send()
+            .await
+            .unwrap();
+        response
+    }
+
+    pub async fn send_query(&self, query: Query) -> Response {
+        let payload = query.to_string();
+        println!("{}", payload);
+        let response = self
+            .http_client
+            .post(&format!("{}/api/v2/query?org={}", self.url, self.org))
+            .header("Authorization", format!("Token {}", &self.key))
+            .header("Content-type", "application/vnd.flux")
+            .header("Accept", "application/csv")
             .body(payload)
             .send()
             .await

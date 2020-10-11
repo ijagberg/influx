@@ -4,7 +4,7 @@ use influx::{InfluxClient, Measurement};
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
     println!("{:?}", args);
-    let client = InfluxClient::builder(args[1].clone(), args[2].clone(), String::from(""))
+    let client = InfluxClient::builder(args[1].clone(), args[2].clone(), String::from("ijagberg"))
         .build()
         .unwrap();
 

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 pub use client::InfluxClient;
 
 pub mod client;
-mod query;
+pub mod query;
 
 use std::{collections::HashMap, fmt::Display, time::SystemTime, time::SystemTimeError};
 

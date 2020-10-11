@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
 pub struct Query {
-    lines: Vec<Method>,
+    lines: Vec<String>,
 }
 
 impl Query {
-    pub fn new(lines: Vec<Method>) -> Self {
+    pub fn new(lines: Vec<String>) -> Self {
         Self { lines }
     }
 
@@ -40,7 +40,7 @@ impl Display for Query {
     }
 }
 
-pub enum Method {
+pub enum Function {
     From {
         bucket: String,
     },
@@ -58,19 +58,19 @@ pub enum Method {
     },
 }
 
-impl Display for Method {
+impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Method::From { bucket } => write!(f, r#"from(bucket: "{}")"#, bucket),
-            Method::Range { start, stop } => {
+            Function::From { bucket } => write!(f, r#"from(bucket: "{}")"#, bucket),
+            Function::Range { start, stop } => {
                 write!(f, r#"range(start: {}, stop: {})"#, start, stop)
             }
-            Method::Filter { function, on_empty } => {
+            Function::Filter { function, on_empty } => {
                 write!(f, r#"filter(fn: {}, onEmpty: "{}")"#, function, on_empty)
             }
-            Method::Group { columns, mode } => write!(
+            Function::Group { columns, mode } => write!(
                 f,
-                r#"group(columns: [{}], mode:"{}""#,
+                r#"group(columns: [{}], mode:"{}")"#,
                 columns
                     .iter()
                     .map(|c| format!(r#""{}""#, c))
@@ -117,23 +117,23 @@ mod tests {
     #[test]
     fn write_query() {
         let lines = vec![
-            Method::From {
+            Function::From {
                 bucket: "server".into(),
             },
-            Method::Range {
-                start: 1602404530510,
-                stop: 1602404530610,
+            Function::Range {
+                start: 1602404530510000000,
+                stop: 1602404530610000000,
             },
-            Method::Filter {
+            Function::Filter {
                 function: r#"(r) => r["_measurement"] == "handle_request""#.into(),
                 on_empty: OnEmpty::Drop,
             },
-            Method::Group {
+            Function::Group {
                 columns: vec!["host".into(), "_measurement".into()],
                 mode: GroupMode::By,
             },
         ];
-        let query = Query::new(lines);
+        let query = Query::new(lines.iter().map(|l| l.to_string()).collect());
 
         assert_eq!(&query.to_string(), "asd");
     }
