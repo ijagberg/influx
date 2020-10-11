@@ -13,7 +13,10 @@ async fn main() {
     let response = client.send_query(example_query()).await;
     println!("{:#?}", response.status());
     let body = response.text().await.unwrap();
-    println!("{:#?}", body);
+    let mut reader = csv::Reader::from_reader(body.as_bytes());
+    for record in reader.records() {
+        println!("{:?}", record.unwrap());
+    }
 }
 
 fn example_query() -> Query {
