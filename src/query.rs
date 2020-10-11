@@ -133,6 +133,11 @@ impl Query {
         self.lines.push(Function::Count { column }.to_string());
         self
     }
+
+    pub fn buckets(mut self) -> Self {
+        self.lines.push(Function::Buckets.to_string());
+        self
+    }
 }
 
 impl Display for Query {
@@ -215,6 +220,8 @@ pub enum Function {
     Sort { columns: Vec<String>, desc: bool },
     /// Outputs the number of records in the specified column.
     Count { column: String },
+    /// Returns a list of buckets in the organization.
+    Buckets,
 }
 
 pub enum TypeValue {
@@ -323,6 +330,7 @@ impl Display for Function {
                 desc
             ),
             Function::Count { column } => write!(f, r#"count(column: "{}""#, column),
+            Function::Buckets => write!(f, r#"buckets()"#),
         }
     }
 }

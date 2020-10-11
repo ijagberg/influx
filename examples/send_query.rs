@@ -11,28 +11,26 @@ async fn main() {
     let response = client.send_query(example_query()).await;
     println!("{:#?}", response.status());
     let body = response.text().await.unwrap();
+    println!("{}", body);
     let mut reader = csv::Reader::from_reader(body.as_bytes());
-    for record in reader.records() {
-        println!("{:?}", record.unwrap());
+    for record in reader.deserialize() {
+        let row: Row = record.unwrap();
+        println!("{:?}", row);
     }
 }
 
 fn example_query() -> Query {
-    let query = Query::new()
-        .with(Function::From {
-            bucket: "server".into(),
-        })
-        .with(Function::Range {
-            start: 1602404530510000000,
-            stop: 1602404530610000000,
-        })
-        .with(Function::Filter {
-            function: r#"(r) => r["_measurement"] == "handle_request""#.into(),
-            on_empty: OnEmpty::Drop,
-        })
-        .with(Function::Group {
-            columns: vec!["host".into(), "_measurement".into()],
-            mode: GroupMode::By,
-        });
-    query
+    Query::new().buckets()
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Row {
+    name: String,
+    id: String,
+    #[serde(alias = "organizationID")]
+    organization_id: String,
+    #[serde(alias = "retentionPolicy")]
+    retention_policy: Option<String>,
+    #[serde(alias = "retentionPeriod")]
+    retention_period: u128,
 }
