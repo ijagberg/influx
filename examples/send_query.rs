@@ -20,19 +20,21 @@ async fn main() {
 }
 
 fn example_query() -> Query {
-    let lines = vec![
-        Function::From {
+    let query = Query::new()
+        .with(Function::From {
             bucket: "server".into(),
-        },
-        Function::Range {
-            start: 1602406555,
-            stop: 1602406655,
-        },
-        Function::Filter {
+        })
+        .with(Function::Range {
+            start: 1602404530510000000,
+            stop: 1602404530610000000,
+        })
+        .with(Function::Filter {
             function: r#"(r) => r["_measurement"] == "handle_request""#.into(),
             on_empty: OnEmpty::Drop,
-        },
-    ];
-    let query = Query::new(lines.iter().map(|l| l.to_string()).collect());
+        })
+        .with(Function::Group {
+            columns: vec!["host".into(), "_measurement".into()],
+            mode: GroupMode::By,
+        });
     query
 }

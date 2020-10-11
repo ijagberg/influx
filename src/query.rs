@@ -1,28 +1,32 @@
 use std::fmt::Display;
 
+fn comma_join<T>(v: &[T]) -> String
+where
+    T: Display,
+{
+    v.iter()
+        .map(|c| format!(r#""{}""#, c))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 pub struct Query {
     lines: Vec<String>,
 }
 
 impl Query {
-    pub fn new(lines: Vec<String>) -> Self {
-        Self { lines }
+    pub fn new() -> Self {
+        Self { lines: Vec::new() }
     }
 
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.lines.is_empty() {
-            write!(f, "")
-        } else {
-            write!(
-                f,
-                "{}",
-                self.lines
-                    .iter()
-                    .map(|m| m.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n |> ")
-            )
-        }
+    pub fn with(mut self, function: Function) -> Self {
+        self.lines.push(function.to_string());
+        self
+    }
+
+    pub fn with_text(mut self, text: String) -> Self {
+        self.lines.push(text);
+        self
     }
 }
 
@@ -56,6 +60,50 @@ pub enum Function {
         columns: Vec<String>,
         mode: GroupMode,
     },
+    Yield {
+        name: String,
+    },
+    Keep {
+        columns: Vec<String>,
+        function: String,
+    },
+    Drop {
+        columns: Vec<String>,
+        function: String,
+    },
+    Tail {
+        n: u32,
+        offset: u32,
+    },
+    Contains {
+        value: TypeValue,
+        set: Vec<TypeValue>,
+    },
+    Distinct {
+        column: String,
+    },
+}
+
+pub enum TypeValue {
+    Bool(bool),
+    Integer(i64),
+    UInteger(u64),
+    Float(f64),
+    String(String),
+    Time(u128),
+}
+
+impl Display for TypeValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeValue::Bool(v) => write!(f, "{}", v),
+            TypeValue::Integer(v) => write!(f, "{}", v),
+            TypeValue::UInteger(v) => write!(f, "{}", v),
+            TypeValue::Float(v) => write!(f, "{}", v),
+            TypeValue::String(v) => write!(f, r#""{}""#, v),
+            TypeValue::Time(v) => write!(f, "{}", v),
+        }
+    }
 }
 
 impl Display for Function {
@@ -71,13 +119,30 @@ impl Display for Function {
             Function::Group { columns, mode } => write!(
                 f,
                 r#"group(columns: [{}], mode:"{}")"#,
-                columns
-                    .iter()
-                    .map(|c| format!(r#""{}""#, c))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                comma_join(columns),
                 mode
             ),
+            Function::Yield { name } => write!(f, r#"yield(name: "{}""#, name),
+            Function::Keep { columns, function } => write!(
+                f,
+                r#"keep(columns: [{}], fn: {})"#,
+                comma_join(columns),
+                function
+            ),
+            Function::Drop { columns, function } => write!(
+                f,
+                r#"drop(columns: [{}], fn: {})"#,
+                comma_join(columns),
+                function
+            ),
+            Function::Tail { n, offset } => write!(f, r#"tail(n: {}, offset: {})"#, n, offset),
+            Function::Contains { value, set } => write!(
+                f,
+                r#"contains(value: {}, set: [{}])"#,
+                value,
+                comma_join(set)
+            ),
+            Function::Distinct { column } => write!(f, r#"distinct(column: "{}")"#, column),
         }
     }
 }
@@ -116,24 +181,22 @@ mod tests {
 
     #[test]
     fn write_query() {
-        let lines = vec![
-            Function::From {
+        let query = Query::new()
+            .with(Function::From {
                 bucket: "server".into(),
-            },
-            Function::Range {
+            })
+            .with(Function::Range {
                 start: 1602404530510000000,
                 stop: 1602404530610000000,
-            },
-            Function::Filter {
+            })
+            .with(Function::Filter {
                 function: r#"(r) => r["_measurement"] == "handle_request""#.into(),
                 on_empty: OnEmpty::Drop,
-            },
-            Function::Group {
+            })
+            .with(Function::Group {
                 columns: vec!["host".into(), "_measurement".into()],
                 mode: GroupMode::By,
-            },
-        ];
-        let query = Query::new(lines.iter().map(|l| l.to_string()).collect());
+            });
 
         assert_eq!(&query.to_string(), "asd");
     }
