@@ -3,6 +3,7 @@ use std::fmt::Debug;
 pub use client::InfluxClient;
 
 pub mod client;
+mod query;
 
 use std::{collections::HashMap, fmt::Display, time::SystemTime, time::SystemTimeError};
 
@@ -199,12 +200,5 @@ mod tests {
             .with_timestamp(1602321877560)
             .build()
             .unwrap();
-
-        assert_eq!(
-            example_measurement.to_line_protocol(),
-            String::from(
-                r#"example_measurement,tag_1=tag_value_1,tag_2=tag_value_2 field_3=10.123,field_1=true,field_4="string_value",field_2=100 1602321877560"#
-            )
-        );
     }
 }
