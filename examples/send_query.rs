@@ -1,4 +1,4 @@
-use influx::{query::Function, query::GroupMode, query::OnEmpty, query::Query, InfluxClient};
+use influx::{query::Query, InfluxClient};
 
 #[tokio::main]
 async fn main() {
@@ -20,7 +20,7 @@ async fn main() {
 }
 
 fn example_query() -> Query {
-    Query::new().buckets()
+    Query::new().buckets().count("name".into())
 }
 
 #[derive(Debug, serde::Deserialize)]

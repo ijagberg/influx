@@ -329,7 +329,7 @@ impl Display for Function {
                 comma_join_strings(columns),
                 desc
             ),
-            Function::Count { column } => write!(f, r#"count(column: "{}""#, column),
+            Function::Count { column } => write!(f, r#"count(column: "{}")"#, column),
             Function::Buckets => write!(f, r#"buckets()"#),
         }
     }
