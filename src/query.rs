@@ -138,6 +138,18 @@ impl Query {
         self.lines.push(Function::Buckets.to_string());
         self
     }
+
+    pub fn integral(mut self, unit: String, column: String, time_column: String) -> Self {
+        self.lines.push(
+            Function::Integral {
+                unit,
+                column,
+                time_column,
+            }
+            .to_string(),
+        );
+        self
+    }
 }
 
 impl Display for Query {
@@ -222,6 +234,13 @@ pub enum Function {
     Count { column: String },
     /// Returns a list of buckets in the organization.
     Buckets,
+    /// Computes the area under the curve per unit of time of subsequent non-null records.
+    /// The curve is defined using `_time` as the domain and record values as the range.
+    Integral {
+        unit: String,
+        column: String,
+        time_column: String,
+    },
 }
 
 pub enum TypeValue {
@@ -331,6 +350,15 @@ impl Display for Function {
             ),
             Function::Count { column } => write!(f, r#"count(column: "{}")"#, column),
             Function::Buckets => write!(f, r#"buckets()"#),
+            Function::Integral {
+                unit,
+                column,
+                time_column,
+            } => write!(
+                f,
+                r#"integral(unit: {}, column: "{}", timeColumn: "{}")"#,
+                unit, column, time_column
+            ),
         }
     }
 }

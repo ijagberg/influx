@@ -20,7 +20,7 @@ async fn main() {
 }
 
 fn example_query() -> Query {
-    Query::new().buckets().count("name".into())
+    Query::new().buckets().count("name".into()).integral("asd".to_string(), "dsa".to_string(), "asd".to_string())
 }
 
 #[derive(Debug, serde::Deserialize)]
