@@ -139,9 +139,7 @@ impl MeasurementBuilder {
     }
 
     pub fn build(self) -> Result<Measurement, MeasurementBuilderError> {
-        if self.tags.is_empty() {
-            Err(MeasurementBuilderError::EmptyTags)
-        } else if self.fields.is_empty() {
+        if self.fields.is_empty() {
             Err(MeasurementBuilderError::EmptyFields)
         } else {
             let timestamp_ms = if let Some(timestamp_ms) = self.timestamp {
@@ -164,7 +162,6 @@ impl MeasurementBuilder {
 
 #[derive(Debug)]
 pub enum MeasurementBuilderError {
-    EmptyTags,
     EmptyFields,
     TimestampError(SystemTimeError),
 }
@@ -172,7 +169,6 @@ pub enum MeasurementBuilderError {
 impl Display for MeasurementBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MeasurementBuilderError::EmptyTags => write!(f, "tags cannot be empty"),
             MeasurementBuilderError::EmptyFields => write!(f, "fields cannot be empty"),
             MeasurementBuilderError::TimestampError(err) => {
                 write!(f, "error evaluating timestamp: '{}'", err)
