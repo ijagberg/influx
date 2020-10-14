@@ -71,13 +71,22 @@ impl Measurement {
     }
 
     pub fn to_line_protocol(&self) -> String {
-        format!(
-            "{},{} {} {}",
-            self.measurement_part(),
-            self.tags_part(),
-            self.fields_part(),
-            self.timestamp_ms
-        )
+        if self.tags.is_empty() {
+            format!(
+                "{} {} {}",
+                self.measurement_part(),
+                self.fields_part(),
+                self.timestamp_ms
+            )
+        } else {
+            format!(
+                "{},{} {} {}",
+                self.measurement_part(),
+                self.tags_part(),
+                self.fields_part(),
+                self.timestamp_ms
+            )
+        }
     }
 }
 
