@@ -29,13 +29,14 @@ impl InfluxClient {
             .map(|m| m.to_line_protocol())
             .collect::<Vec<_>>()
             .join("\n");
-        println!("{}", payload);
+        let url = format!(
+            "{}/api/v2/write?org={}&bucket={}&precision=ms",
+            self.url, self.org, bucket
+        );
+        info!("posting payload to influx at '{}': '{}'", url, payload);
         let response = self
             .http_client
-            .post(&format!(
-                "{}/api/v2/write?org={}&bucket={}&precision=ms",
-                self.url, self.org, bucket
-            ))
+            .post(&url)
             .header("Authorization", format!("Token {}", &self.key))
             .body(payload)
             .send()

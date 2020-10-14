@@ -7,6 +7,8 @@ pub mod query;
 
 use std::{collections::HashMap, fmt::Display, time::SystemTime, time::SystemTimeError};
 
+#[macro_use]
+extern crate log;
 /// Represents various supported field values
 pub enum Field {
     /// A float field
