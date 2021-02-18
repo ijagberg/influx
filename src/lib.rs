@@ -158,7 +158,7 @@ impl MeasurementBuilder {
             } else {
                 SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
-                    .map_err(|e| MeasurementBuilderError::TimestampError(e))?
+                    .map_err(MeasurementBuilderError::TimestampError)?
                     .as_millis()
             };
             Ok(Measurement {

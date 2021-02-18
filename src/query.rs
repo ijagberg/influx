@@ -91,7 +91,7 @@ impl Query {
         self.lines.push(
             Function::Contains {
                 value: value.into(),
-                set: set.into_iter().map(|v| TypeValue::from(v)).collect(),
+                set: set.into_iter().map(TypeValue::from).collect(),
             }
             .to_string(),
         );
@@ -149,6 +149,12 @@ impl Query {
             .to_string(),
         );
         self
+    }
+}
+
+impl Default for Query {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -317,7 +323,7 @@ impl Display for Function {
                 comma_join_strings(columns),
                 mode
             ),
-            Function::Yield { name } => write!(f, r#"yield(name: "{}""#, name),
+            Function::Yield { name } => write!(f, r#"yield(name: "{}")"#, name),
             Function::Keep { columns, function } => write!(
                 f,
                 r#"keep(columns: [{}], fn: {})"#,

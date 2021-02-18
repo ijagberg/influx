@@ -1,4 +1,7 @@
-use influx::{query::Query, InfluxClient};
+use influx::{
+    query::{OnEmpty, Query},
+    InfluxClient,
+};
 
 #[tokio::main]
 async fn main() {
@@ -8,10 +11,9 @@ async fn main() {
         .build()
         .unwrap();
 
-    let response = client.send_query(example_query()).await;
+    let response = client.send_query(example_query()).await.unwrap();
     println!("{:#?}", response.status());
     let body = response.text().await.unwrap();
-    println!("{}", body);
     let mut reader = csv::Reader::from_reader(body.as_bytes());
     for record in reader.deserialize() {
         let row: Row = record.unwrap();
@@ -20,7 +22,22 @@ async fn main() {
 }
 
 fn example_query() -> Query {
-    Query::new().buckets().count("name".into()).integral("asd".to_string(), "dsa".to_string(), "asd".to_string())
+    Query::new()
+        .from("server".into())
+        .range(1613052000, 1613052600)
+        .filter(
+            r#"(r) => r["_measurement"] == "handle_request""#.into(),
+            OnEmpty::Drop,
+        )
+        .filter(
+            r#"(r) => r["_field"] == "duration_micros""#.into(),
+            OnEmpty::Drop,
+        )
+        .filter(
+            r#"(r) => r["method"] == "add_prediction""#.into(),
+            OnEmpty::Drop,
+        )
+        .r#yield("mean".into())
 }
 
 #[derive(Debug, serde::Deserialize)]

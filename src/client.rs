@@ -1,4 +1,4 @@
-use reqwest::Response;
+use reqwest::{Method, Response};
 
 use crate::{query::Query, Measurement};
 
@@ -34,31 +34,35 @@ impl InfluxClient {
             self.url, self.org, bucket
         );
         info!("posting payload to influx at '{}': '{}'", url, payload);
-        let response = self
-            .http_client
+        self.http_client
             .post(&url)
             .header("Authorization", format!("Token {}", &self.key))
             .body(payload)
             .send()
             .await
-            .unwrap();
-        response
+            .unwrap()
     }
 
-    pub async fn send_query(&self, query: Query) -> Response {
+    pub async fn send_query(&self, query: Query) -> Result<Response, InfluxClientError> {
         let payload = query.to_string();
-        println!("{}", payload);
-        let response = self
+
+        debug!("sending query: {}", payload);
+
+        let request = self
             .http_client
-            .post(&format!("{}/api/v2/query?org={}", self.url, self.org))
+            .request(
+                Method::POST,
+                &format!("{}/api/v2/query?org={}", self.url, self.org),
+            )
             .header("Authorization", format!("Token {}", &self.key))
             .header("Content-type", "application/vnd.flux")
             .header("Accept", "application/csv")
             .body(payload)
-            .send()
-            .await
-            .unwrap();
-        response
+            .build()?;
+
+        let response = self.http_client.execute(request).await?;
+
+        Ok(response)
     }
 }
 
@@ -85,3 +89,14 @@ impl InfluxClientBuilder {
 
 #[derive(Debug)]
 pub enum InfluxClientBuilderError {}
+
+#[derive(Debug)]
+pub enum InfluxClientError {
+    ReqwestError(reqwest::Error),
+}
+
+impl From<reqwest::Error> for InfluxClientError {
+    fn from(err: reqwest::Error) -> Self {
+        Self::ReqwestError(err)
+    }
+}
