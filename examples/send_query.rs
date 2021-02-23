@@ -23,21 +23,21 @@ async fn main() {
 
 fn example_query() -> Query {
     Query::new()
-        .from("server".into())
+        .from("server")
         .range(1613052000, 1613052600)
         .filter(
-            r#"(r) => r["_measurement"] == "handle_request""#.into(),
+            r#"(r) => r["_measurement"] == "handle_request""#,
             OnEmpty::Drop,
         )
         .filter(
-            r#"(r) => r["_field"] == "duration_micros""#.into(),
+            r#"(r) => r["_field"] == "duration_micros""#,
             OnEmpty::Drop,
         )
         .filter(
-            r#"(r) => r["method"] == "add_prediction""#.into(),
+            r#"(r) => r["method"] == "add_prediction""#,
             OnEmpty::Drop,
         )
-        .r#yield("mean".into())
+        .r#yield("mean")
 }
 
 #[derive(Debug, serde::Deserialize)]

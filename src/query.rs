@@ -35,13 +35,18 @@ impl Query {
         self
     }
 
-    pub fn with_text(mut self, text: String) -> Self {
-        self.lines.push(text);
+    pub fn with_text(mut self, text: impl Into<String>) -> Self {
+        self.lines.push(text.into());
         self
     }
 
-    pub fn from(mut self, bucket: String) -> Self {
-        self.lines.push(Function::From { bucket }.to_string());
+    pub fn from(mut self, bucket: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::From {
+                bucket: bucket.into(),
+            }
+            .to_string(),
+        );
         self
     }
 
@@ -50,9 +55,14 @@ impl Query {
         self
     }
 
-    pub fn filter(mut self, function: String, on_empty: OnEmpty) -> Self {
-        self.lines
-            .push(Function::Filter { function, on_empty }.to_string());
+    pub fn filter(mut self, function: impl Into<String>, on_empty: OnEmpty) -> Self {
+        self.lines.push(
+            Function::Filter {
+                function: function.into(),
+                on_empty,
+            }
+            .to_string(),
+        );
         self
     }
 
@@ -62,20 +72,31 @@ impl Query {
         self
     }
 
-    pub fn r#yield(mut self, name: String) -> Self {
-        self.lines.push(Function::Yield { name }.to_string());
+    pub fn r#yield(mut self, name: impl Into<String>) -> Self {
+        self.lines
+            .push(Function::Yield { name: name.into() }.to_string());
         self
     }
 
-    pub fn keep(mut self, columns: Vec<String>, function: String) -> Self {
-        self.lines
-            .push(Function::Keep { columns, function }.to_string());
+    pub fn keep(mut self, columns: Vec<String>, function: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::Keep {
+                columns,
+                function: function.into(),
+            }
+            .to_string(),
+        );
         self
     }
 
-    pub fn drop(mut self, columns: Vec<String>, function: String) -> Self {
-        self.lines
-            .push(Function::Drop { columns, function }.to_string());
+    pub fn drop(mut self, columns: Vec<String>, function: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::Drop {
+                columns,
+                function: function.into(),
+            }
+            .to_string(),
+        );
         self
     }
 
@@ -98,8 +119,13 @@ impl Query {
         self
     }
 
-    pub fn distinct(mut self, column: String) -> Self {
-        self.lines.push(Function::Distinct { column }.to_string());
+    pub fn distinct(mut self, column: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::Distinct {
+                column: column.into(),
+            }
+            .to_string(),
+        );
         self
     }
 
@@ -118,8 +144,14 @@ impl Query {
         self
     }
 
-    pub fn set(mut self, key: String, value: String) -> Self {
-        self.lines.push(Function::Set { key, value }.to_string());
+    pub fn set(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::Set {
+                key: key.into(),
+                value: value.into(),
+            }
+            .to_string(),
+        );
         self
     }
 
@@ -129,8 +161,13 @@ impl Query {
         self
     }
 
-    pub fn count(mut self, column: String) -> Self {
-        self.lines.push(Function::Count { column }.to_string());
+    pub fn count(mut self, column: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::Count {
+                column: column.into(),
+            }
+            .to_string(),
+        );
         self
     }
 
@@ -139,12 +176,17 @@ impl Query {
         self
     }
 
-    pub fn integral(mut self, unit: String, column: String, time_column: String) -> Self {
+    pub fn integral(
+        mut self,
+        unit: impl Into<String>,
+        column: impl Into<String>,
+        time_column: impl Into<String>,
+    ) -> Self {
         self.lines.push(
             Function::Integral {
-                unit,
-                column,
-                time_column,
+                unit: unit.into(),
+                column: column.into(),
+                time_column: time_column.into(),
             }
             .to_string(),
         );
@@ -428,10 +470,10 @@ mod tests {
             });
 
         let query2 = Query::new()
-            .from("server".into())
+            .from("server")
             .range(1602404530510000000, 1602404530610000000)
             .filter(
-                r#"(r) => r["_measurement"] == "handle_request""#.into(),
+                r#"(r) => r["_measurement"] == "handle_request""#,
                 OnEmpty::Drop,
             )
             .contains(

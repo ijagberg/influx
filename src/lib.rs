@@ -1,5 +1,6 @@
-use std::fmt::Debug;
+use std::{convert::TryInto, fmt::Debug};
 
+use chrono::{DateTime, TimeZone, Utc};
 pub use client::InfluxClient;
 
 pub mod client;
@@ -9,7 +10,9 @@ use std::{collections::HashMap, fmt::Display, time::SystemTime, time::SystemTime
 
 #[macro_use]
 extern crate log;
+
 /// Represents various supported field values
+#[derive(Debug, Clone)]
 pub enum Field {
     /// A float field
     Float(f64),
@@ -35,21 +38,98 @@ impl Display for Field {
     }
 }
 
+macro_rules! impl_uint {
+    ($from_type:ty) => {
+        impl From<$from_type> for Field {
+            fn from(v: $from_type) -> Self {
+                Field::UInteger(v as u128)
+            }
+        }
+    };
+}
+
+impl_uint!(u8);
+impl_uint!(u16);
+impl_uint!(u32);
+impl_uint!(u64);
+impl_uint!(u128);
+
+macro_rules! impl_int {
+    ($from_type:ty) => {
+        impl From<$from_type> for Field {
+            fn from(v: $from_type) -> Self {
+                Field::Integer(v as i128)
+            }
+        }
+    };
+}
+
+impl_int!(i8);
+impl_int!(i16);
+impl_int!(i32);
+impl_int!(i64);
+impl_int!(i128);
+
+macro_rules! impl_float {
+    ($from_type:ty) => {
+        impl From<$from_type> for Field {
+            fn from(v: $from_type) -> Self {
+                Field::Float(v as f64)
+            }
+        }
+    };
+}
+
+impl_float!(f32);
+impl_float!(f64);
+
+impl From<bool> for Field {
+    fn from(v: bool) -> Self {
+        Field::Bool(v)
+    }
+}
+
+impl From<String> for Field {
+    fn from(v: String) -> Self {
+        Field::String(v)
+    }
+}
+
+impl From<&str> for Field {
+    fn from(v: &str) -> Self {
+        Field::String(v.into())
+    }
+}
+
 /// Represents a point of measurement in Influx
+#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Measurement {
     /// Name of measurement
-    measurement_name: String,
+    pub measurement_name: String,
     /// Timestamp of measurement as a Unix Epoch (ms)
-    timestamp_ms: u128,
+    pub timestamp_ms: u128,
     /// Tags of measurement
-    tags: HashMap<String, String>,
+    pub tags: HashMap<String, String>,
     /// Fields of measurement
-    fields: HashMap<String, Field>,
+    pub fields: HashMap<String, Field>,
 }
 
 impl Measurement {
-    pub fn builder(measurement_name: String) -> MeasurementBuilder {
+    pub fn builder(measurement_name: impl Into<String>) -> MeasurementBuilder {
         MeasurementBuilder::new(measurement_name)
+    }
+
+    pub fn timestamp_utc(&self) -> DateTime<Utc> {
+        Utc.timestamp_millis(self.timestamp_ms.try_into().unwrap())
+    }
+
+    pub fn add_field(&mut self, name: impl Into<String>, value: impl Into<Field>) {
+        self.fields.insert(name.into(), value.into());
+    }
+
+    pub fn add_tag(&mut self, name: impl Into<String>, value: impl Into<String>) {
+        self.tags.insert(name.into(), value.into());
     }
 
     fn measurement_part(&self) -> &str {
@@ -100,47 +180,22 @@ pub struct MeasurementBuilder {
 }
 
 impl MeasurementBuilder {
-    fn new(measurement_name: String) -> Self {
+    fn new(measurement_name: impl Into<String>) -> Self {
         MeasurementBuilder {
-            name: measurement_name,
+            name: measurement_name.into(),
             tags: Vec::new(),
             fields: Vec::new(),
             timestamp: None,
         }
     }
 
-    pub fn with_tag(mut self, name: String, value: String) -> Self {
-        self.tags.push((name, value));
+    pub fn with_tag(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.tags.push((name.into(), value.into()));
         self
     }
 
-    pub fn with_field(mut self, name: String, value: Field) -> Self {
-        self.fields.push((name, value));
-        self
-    }
-
-    pub fn with_field_f64(mut self, name: String, value: f64) -> Self {
-        self.fields.push((name, Field::Float(value)));
-        self
-    }
-
-    pub fn with_field_string(mut self, name: String, value: String) -> Self {
-        self.fields.push((name, Field::String(value)));
-        self
-    }
-
-    pub fn with_field_bool(mut self, name: String, value: bool) -> Self {
-        self.fields.push((name, Field::Bool(value)));
-        self
-    }
-
-    pub fn with_field_u128(mut self, name: String, value: u128) -> Self {
-        self.fields.push((name, Field::UInteger(value)));
-        self
-    }
-
-    pub fn with_field_i128(mut self, name: String, value: i128) -> Self {
-        self.fields.push((name, Field::Integer(value)));
+    pub fn with_field(mut self, name: impl Into<String>, value: impl Into<Field>) -> Self {
+        self.fields.push((name.into(), value.into()));
         self
     }
 
@@ -179,12 +234,14 @@ pub enum MeasurementBuilderError {
 
 impl Display for MeasurementBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MeasurementBuilderError::EmptyFields => write!(f, "fields cannot be empty"),
+        let output = match self {
+            MeasurementBuilderError::EmptyFields => format!("fields cannot be empty"),
             MeasurementBuilderError::TimestampError(err) => {
-                write!(f, "error evaluating timestamp: '{}'", err)
+                format!("error evaluating timestamp: '{}'", err)
             }
-        }
+        };
+
+        write!(f, "{}", output)
     }
 }
 
@@ -194,18 +251,18 @@ mod tests {
 
     #[test]
     fn measurement() {
-        Measurement::builder(String::from("example_measurement"))
-            .with_tag(String::from("tag_1"), String::from("tag_value_1"))
-            .with_tag(String::from("tag_2"), String::from("tag_value_2"))
-            .with_field(String::from("field_1"), Field::Bool(true))
-            .with_field(String::from("field_2"), Field::Integer(100))
-            .with_field(String::from("field_3"), Field::Float(10.123))
-            .with_field(
-                String::from("field_4"),
-                Field::String(String::from("string_value")),
-            )
+        let m = Measurement::builder("example_measurement")
+            .with_tag("tag_1", "tag_value_1")
+            .with_tag("tag_2", "tag_value_2")
+            .with_field("bool_field", true)
+            .with_field("uinteger_field", 100_u16)
+            .with_field("integer_field", -100)
+            .with_field("float_field", 10.123)
+            .with_field("string_field", "string_value")
             .with_timestamp(1602321877560)
             .build()
             .unwrap();
+
+        println!("{:?}", m);
     }
 }

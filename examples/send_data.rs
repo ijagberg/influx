@@ -17,11 +17,11 @@ async fn main() {
 }
 
 fn get_example_measurements() -> Vec<Measurement> {
-    let m1 = Measurement::builder(String::from("m1"))
-        .with_tag(String::from("tag1"), String::from("tag1_value"))
-        .with_tag(String::from("tag2"), String::from("tag2_value"))
-        .with_field_string(String::from("field1"), String::from("string_value"))
-        .with_field_bool(String::from("field2"), true)
+    let m1 = Measurement::builder("m1")
+        .with_tag("tag1", "tag1_value")
+        .with_tag("tag2", "tag2_value")
+        .with_field("field1", "string_value")
+        .with_field("field2", true)
         .build()
         .unwrap();
 
