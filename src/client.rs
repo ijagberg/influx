@@ -1,6 +1,9 @@
-use reqwest::{Method, Response};
+use std::fmt::Display;
 
 use crate::{query::Query, Measurement};
+use reqwest::Method;
+
+pub use reqwest::Response;
 
 pub struct InfluxClient {
     url: String,
@@ -102,5 +105,17 @@ pub enum InfluxClientError {
 impl From<reqwest::Error> for InfluxClientError {
     fn from(err: reqwest::Error) -> Self {
         Self::ReqwestError(err)
+    }
+}
+
+impl Display for InfluxClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let output = match self {
+            InfluxClientError::ReqwestError(e) => {
+                format!("reqwest error: '{}'", e)
+            }
+        };
+
+        write!(f, "{}", output)
     }
 }
