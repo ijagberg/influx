@@ -10,7 +10,8 @@ async fn main() {
 
     let response = client
         .send_batch("server", &get_example_measurements())
-        .await;
+        .await
+        .unwrap();
     println!("{:#?}", response.status());
     let body = response.text().await.unwrap();
     println!("{:#?}", body);

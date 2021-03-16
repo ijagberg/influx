@@ -23,7 +23,11 @@ impl InfluxClient {
         InfluxClientBuilder::new(url, key, org)
     }
 
-    pub async fn send_batch(&self, bucket: &str, measurements: &[Measurement]) -> Response {
+    pub async fn send_batch(
+        &self,
+        bucket: &str,
+        measurements: &[Measurement],
+    ) -> Result<Response, InfluxClientError> {
         let payload = measurements
             .iter()
             .map(|m| m.to_line_protocol())
@@ -34,13 +38,13 @@ impl InfluxClient {
             self.url, self.org, bucket
         );
         info!("posting payload to influx at '{}': '{}'", url, payload);
-        self.http_client
+        Ok(self
+            .http_client
             .post(&url)
             .header("Authorization", format!("Token {}", &self.key))
             .body(payload)
             .send()
-            .await
-            .unwrap()
+            .await?)
     }
 
     pub async fn send_query(&self, query: Query) -> Result<Response, InfluxClientError> {
