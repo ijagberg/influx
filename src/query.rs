@@ -192,6 +192,28 @@ impl Query {
         );
         self
     }
+
+    pub fn duplicate(mut self, column: impl Into<String>, r#as: impl Into<String>) -> Self {
+        self.lines.push(
+            Function::Duplicate {
+                column: column.into(),
+                r#as: r#as.into(),
+            }
+            .to_string(),
+        );
+        self
+    }
+
+    pub fn keys(mut self, column: Option<impl Into<String>>) -> Self {
+        self.lines.push(
+            Function::Keys {
+                column: column.map(|c| c.into()),
+            }
+            .to_string(),
+        );
+
+        self
+    }
 }
 
 impl Default for Query {
@@ -288,6 +310,20 @@ pub enum Function {
         unit: String,
         column: String,
         time_column: String,
+    },
+    /// Duplicates a specified column in a table.
+    Duplicate {
+        /// The column name to duplicate.
+        column: String,
+        /// The name assigned to the duplicate column.
+        r#as: String,
+    },
+    /// Outputs the group key of input tables.
+    /// For each input table, it outputs a table with the same group key columns,
+    /// plus a _value column containing the labels of the input table's group key.
+    Keys {
+        /// Column is the name of the output column to store the group key labels. Defaults to `_value`.
+        column: Option<String>,
     },
 }
 
@@ -407,6 +443,17 @@ impl Display for Function {
                 r#"integral(unit: {}, column: "{}", timeColumn: "{}")"#,
                 unit, column, time_column
             ),
+            Function::Duplicate { column, r#as } => {
+                write!(f, r#"duplicate(column: "{}", as: "{}")"#, column, r#as)
+            }
+            Function::Keys { column } => match column {
+                Some(column) => {
+                    write!(f, r#"keys(column: "{}")"#, column)
+                }
+                None => {
+                    write!(f, r#"keys()"#)
+                }
+            },
         }
     }
 }
