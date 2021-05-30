@@ -1,7 +1,6 @@
-use std::fmt::Display;
-
 use crate::{query::Query, Measurement};
 use reqwest::Method;
+use std::fmt::Display;
 
 pub use reqwest::Response;
 

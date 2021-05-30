@@ -30,7 +30,22 @@ impl Query {
         Self { lines: Vec::new() }
     }
 
-    pub fn with(mut self, function: Function) -> Self {
+    /// Create a query from a raw string.
+    ///
+    /// ## Example
+    /// ```rust
+    /// let query = Query::raw(r#"from(bucket: "server")
+    ///     |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+    ///     |> filter(fn: (r) => r["_measurement"] == "m1")
+    ///     |> keys()"#);
+    /// ```
+    pub fn raw(query: String) -> Self {
+        let lines = query.lines().map(|l| l.to_owned()).collect();
+        Self { lines }
+    }
+
+    #[allow(unused)]
+    fn with(mut self, function: Function) -> Self {
         self.lines.push(function.to_string());
         self
     }
@@ -40,6 +55,13 @@ impl Query {
         self
     }
 
+    /// Used to retrieve data from an InfluxDB data source.
+    /// It returns a stream of tables from the specified bucket.
+    /// Each unique series is contained within its own table.
+    /// Each record in the table represents a single point in the series.
+    ///
+    /// ## Params
+    /// * `bucket`: Name of the bucket to query.
     pub fn from(mut self, bucket: impl Into<String>) -> Self {
         self.lines.push(
             Function::From {
@@ -50,12 +72,26 @@ impl Query {
         self
     }
 
-    pub fn range(mut self, start: u128, stop: u128) -> Self {
+    /// Filters records based on time bounds.
+    /// Each input table's records are filtered to contain only records that exist within the time bounds.
+    /// Each input table's group key value is modified to fit within the time bounds.
+    /// Tables where all records exists outside the time bounds are filtered entirely.
+    ///
+    /// ## Params
+    /// * `start`: The earliest time to include in results.
+    /// * `stop`: The latest time to include in results. Defaults to `now()`.
+    pub fn range(mut self, start: u128, stop: Option<u128>) -> Self {
         self.lines.push(Function::Range { start, stop }.to_string());
         self
     }
 
-    pub fn filter(mut self, function: impl Into<String>, on_empty: OnEmpty) -> Self {
+    /// Filters data based on conditions defined in the function.
+    /// The output tables have the same schema as the corresponding input tables.
+    ///
+    /// ## Params
+    /// * `function`: A single argument function that evaluates true or false. Records are passed to the function. Those that evaluate to true are included in the output tables.
+    /// * `on_empty`: Defines the behavior for empty tables. Potential values are `keep` and `drop`. Defaults to `drop`.
+    pub fn filter(mut self, function: impl Into<String>, on_empty: Option<OnEmpty>) -> Self {
         self.lines.push(
             Function::Filter {
                 function: function.into(),
@@ -66,45 +102,92 @@ impl Query {
         self
     }
 
-    pub fn group(mut self, columns: Vec<String>, mode: GroupMode) -> Self {
+    /// Groups records based on their values for specific columns.
+    /// It produces tables with new group keys based on provided properties.
+    ///
+    /// ## Params
+    /// * `columns`: List of columns to use in the grouping operation. Defaults to `[]`.
+    /// * `mode`: The mode used to group columns. The following options are available: by, except. Defaults to `"by"`.
+    pub fn group(mut self, columns: Vec<String>, mode: Option<GroupMode>) -> Self {
         self.lines
             .push(Function::Group { columns, mode }.to_string());
         self
     }
 
+    /// Indicates the input tables received should be delivered as a result of the query.
+    /// Yield outputs the input stream unmodified.
+    /// A query may have multiple results, each identified by the name provided to the `yield()` function.
+    ///
+    /// ## Params
+    /// * `name`: A unique name for the yielded results.
     pub fn r#yield(mut self, name: impl Into<String>) -> Self {
         self.lines
             .push(Function::Yield { name: name.into() }.to_string());
         self
     }
 
-    pub fn keep(mut self, columns: Vec<String>, function: impl Into<String>) -> Self {
+    /// Returns a table containing only the specified columns, ignoring all others.
+    /// Only columns in the group key that are also specified in the `keep()` function will be kept in the resulting group key.
+    /// It is the inverse of `drop`.
+    ///
+    /// ## Params
+    /// * `columns`: Columns that should be included in the resulting table. Cannot be used with `function`.
+    /// * `function`: A predicate function which takes a column name as a parameter and returns a boolean indicating whether or not the column should be removed from the table. Cannot be used with `columns`.
+    pub fn keep(
+        mut self,
+        columns: Option<Vec<String>>,
+        function: Option<impl Into<String>>,
+    ) -> Self {
         self.lines.push(
             Function::Keep {
                 columns,
-                function: function.into(),
+                function: function.map(|f| f.into()),
             }
             .to_string(),
         );
         self
     }
 
-    pub fn drop(mut self, columns: Vec<String>, function: impl Into<String>) -> Self {
+    /// Removes specified columns from a table.
+    /// Columns can be specified either through a list or a predicate function.
+    /// When a dropped column is part of the group key, it will be removed from the key.
+    ///
+    /// ## Params
+    /// * `columns`: A list of columns to be removed from the table. Cannot be used with `function`.
+    /// * `function`: A function which takes a column name as a parameter and returns a boolean indicating whether or not the column should be removed from the table. Cannot be used with `columns`.
+    pub fn drop(
+        mut self,
+        columns: Option<Vec<String>>,
+        function: Option<impl Into<String>>,
+    ) -> Self {
         self.lines.push(
             Function::Drop {
                 columns,
-                function: function.into(),
+                function: function.map(|f| f.into()),
             }
             .to_string(),
         );
         self
     }
 
-    pub fn tail(mut self, n: u32, offset: u32) -> Self {
+    /// Limits each output table to the last `n` records, excluding the offset.
+    ///
+    /// ## Params
+    /// * `n`: The maximum number of records to output.
+    /// * `offset`: The number of records to skip at the end of a table before limiting to `n`. Defaults to `0`.
+    pub fn tail(mut self, n: u32, offset: Option<u32>) -> Self {
         self.lines.push(Function::Tail { n, offset }.to_string());
         self
     }
 
+    /// Tests whether a value is a member of a set.
+    ///
+    /// ## Params
+    /// * `value`: The value to search for.
+    /// * `set`: The set of values in which to search.
+    ///
+    /// ## Example
+    /// `contains(value: 1, set: [1,2,3])`
     pub fn contains<T>(mut self, value: T, set: Vec<T>) -> Self
     where
         TypeValue: From<T>,
@@ -119,6 +202,13 @@ impl Query {
         self
     }
 
+    /// Returns the unique values for a given column.
+    ///
+    /// ## Params
+    /// * `column`: Column on which to track unique values.
+    ///
+    /// ## Example
+    /// `distinct(column: "host")`
     pub fn distinct(mut self, column: impl Into<String>) -> Self {
         self.lines.push(
             Function::Distinct {
@@ -129,21 +219,35 @@ impl Query {
         self
     }
 
+    /// Selects record with the highest `_value` from the input table.
     pub fn max(mut self) -> Self {
         self.lines.push(Function::Max.to_string());
         self
     }
 
+    /// Selects record with the lowest `_value` from the input table.
     pub fn min(mut self) -> Self {
         self.lines.push(Function::Min.to_string());
         self
     }
 
-    pub fn limit(mut self, n: u32, offset: u32) -> Self {
+    /// Limits each output table to the first `n` records, excluding the offset.
+    ///
+    /// ## Params
+    /// * `n`: The maximum number of records to output.
+    /// * `offset`: The number of records to skip at the beginning of a table before limiting to `n`. Defaults to `0`.
+    pub fn limit(mut self, n: u32, offset: Option<u32>) -> Self {
         self.lines.push(Function::Limit { n, offset }.to_string());
         self
     }
 
+    /// Assigns a static value to each record in the input table.
+    /// The key may modify an existing column or add a new column to the tables.
+    /// If the modified column is part of the group key, the output tables are regrouped as needed.
+    ///
+    /// ## Params
+    /// * `key`: The label of the column to modify or set.
+    /// * `value`: The string value to set.
     pub fn set(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.lines.push(
             Function::Set {
@@ -155,44 +259,68 @@ impl Query {
         self
     }
 
-    pub fn sort(mut self, columns: Vec<String>, desc: bool) -> Self {
+    /// Orders the records within each table.
+    /// One output table is produced for each input table.
+    /// The output tables will have the same schema as their corresponding input tables.
+    ///
+    /// ## Params
+    /// * `columns`: List of columns by which to sort. Sort precedence is determined by list order (left to right). Default is `["_value"]`.
+    /// * `desc`: Sort results in descending order. Default is `false`.
+    pub fn sort(mut self, columns: Option<Vec<String>>, desc: Option<bool>) -> Self {
         self.lines
             .push(Function::Sort { columns, desc }.to_string());
         self
     }
 
-    pub fn count(mut self, column: impl Into<String>) -> Self {
+    /// Outputs the number of records in the specified column.
+    ///
+    /// ## Params
+    /// * `column`: The column on which to operate. Defaults to `"_value"`.
+    pub fn count(mut self, column: Option<impl Into<String>>) -> Self {
         self.lines.push(
             Function::Count {
-                column: column.into(),
+                column: column.map(|c| c.into()),
             }
             .to_string(),
         );
         self
     }
 
+    /// Returns a list of buckets in the organization.
     pub fn buckets(mut self) -> Self {
         self.lines.push(Function::Buckets.to_string());
         self
     }
 
+    /// Computes the area under the curve per unit of time of subsequent non-null records.
+    /// The curve is defined using `_time` as the domain and record values as the range.
+    ///
+    /// ## Params
+    /// * `unit`: The time duration used when computing the integral.
+    /// * `column`: The column on which to operate. Defaults to `"_value"`.
+    /// * `time_column`: Column that contains time values to use in the operation. Defaults to `"_time"`.
     pub fn integral(
         mut self,
         unit: impl Into<String>,
-        column: impl Into<String>,
-        time_column: impl Into<String>,
+        column: Option<impl Into<String>>,
+        time_column: Option<impl Into<String>>,
     ) -> Self {
         self.lines.push(
             Function::Integral {
                 unit: unit.into(),
-                column: column.into(),
-                time_column: time_column.into(),
+                column: column.map(|c| c.into()),
+                time_column: time_column.map(|t| t.into()),
             }
             .to_string(),
         );
         self
     }
 
+    /// Duplicates a specified column in a table.
+    ///
+    /// ## Params
+    /// * `column`: The column name to duplicate.
+    /// * `as`: The name assigned to the duplicate column.
     pub fn duplicate(mut self, column: impl Into<String>, r#as: impl Into<String>) -> Self {
         self.lines.push(
             Function::Duplicate {
@@ -204,10 +332,40 @@ impl Query {
         self
     }
 
+    /// Outputs the group key of input tables.
+    /// For each input table, it outputs a table with the same group key columns,
+    /// plus a _value column containing the labels of the input table's group key.
+    ///
+    /// ## Params
+    /// * `column`: Column is the name of the output column to store the group key labels. Defaults to `_value`.
     pub fn keys(mut self, column: Option<impl Into<String>>) -> Self {
         self.lines.push(
             Function::Keys {
                 column: column.map(|c| c.into()),
+            }
+            .to_string(),
+        );
+
+        self
+    }
+
+    /// Collects values stored vertically (column-wise) in a table and aligns them horizontally (row-wise) into logical sets.
+    ///
+    /// ## Params
+    /// * `row_key`: List of columns used to uniquely identify a row for the output.
+    /// * `column_key`: List of columns used to pivot values onto each row identified by the rowKey.
+    /// * `value_column`: The single column that contains the value to be moved around the pivot.
+    pub fn pivot(
+        mut self,
+        row_key: Vec<String>,
+        column_key: Vec<String>,
+        value_column: String,
+    ) -> Self {
+        self.lines.push(
+            Function::Pivot {
+                row_key,
+                column_key,
+                value_column,
             }
             .to_string(),
         );
@@ -236,94 +394,78 @@ impl Display for Query {
     }
 }
 
-pub enum Function {
-    /// Used to retrieve data from an InfluxDB data source.
-    /// It returns a stream of tables from the specified bucket.
-    /// Each unique series is contained within its own table.
-    /// Each record in the table represents a single point in the series.
-    From { bucket: String },
-    /// Filters records based on time bounds.
-    /// Each input table's records are filtered to contain only records that exist within the time bounds.
-    /// Each input table's group key value is modified to fit within the time bounds.
-    /// Tables where all records exists outside the time bounds are filtered entirely.
-    Range { start: u128, stop: u128 },
-    /// Filters data based on conditions defined in the function.
-    /// The output tables have the same schema as the corresponding input tables.
-    Filter { function: String, on_empty: OnEmpty },
-    /// Groups records based on their values for specific columns.
-    /// It produces tables with new group keys based on provided properties.
+enum Function {
+    From {
+        bucket: String,
+    },
+    Range {
+        start: u128,
+        stop: Option<u128>,
+    },
+    Filter {
+        function: String,
+        on_empty: Option<OnEmpty>,
+    },
     Group {
         columns: Vec<String>,
-        mode: GroupMode,
+        mode: Option<GroupMode>,
     },
-    /// Indicates the input tables received should be delivered as a result of the query.
-    /// Yield outputs the input stream unmodified.
-    /// A query may have multiple results, each identified by the name provided to the `yield()` function.
-    Yield { name: String },
-    /// Returns a table containing only the specified columns, ignoring all others.
-    /// Only columns in the group key that are also specified in the `keep()` function will be kept in the resulting group key.
-    /// It is the inverse of `drop`.
+    Yield {
+        name: String,
+    },
     Keep {
-        columns: Vec<String>,
-        function: String,
+        columns: Option<Vec<String>>,
+        function: Option<String>,
     },
-    /// Removes specified columns from a table.
-    /// Columns can be specified either through a list or a predicate function.
-    /// When a dropped column is part of the group key, it will be removed from the key.
     Drop {
-        columns: Vec<String>,
-        function: String,
+        columns: Option<Vec<String>>,
+        function: Option<String>,
     },
-    /// Limits each output table to the last `n` records, excluding the offset.
-    Tail { n: u32, offset: u32 },
-    /// Tests whether a value is a member of a set.
+    Tail {
+        n: u32,
+        offset: Option<u32>,
+    },
     Contains {
         value: TypeValue,
         set: Vec<TypeValue>,
     },
-    /// Returns the unique values for a given column.
     Distinct {
-        /// Column on which to track unique values.
         column: String,
     },
-    /// Selects record with the highest `_value` from the input table.
     Max,
-    /// Selects record with the lowest `_value` from the input table.
     Min,
-    /// Limits each output table to the first `n` records, excluding the offset.
-    Limit { n: u32, offset: u32 },
-    /// Assigns a static value to each record in the input table.
-    /// The key may modify an existing column or add a new column to the tables.
-    /// If the modified column is part of the group key, the output tables are regrouped as needed.
-    Set { key: String, value: String },
-    /// Orders the records within each table.
-    /// One output table is produced for each input table.
-    /// The output tables will have the same schema as their corresponding input tables.
-    Sort { columns: Vec<String>, desc: bool },
-    /// Outputs the number of records in the specified column.
-    Count { column: String },
-    /// Returns a list of buckets in the organization.
+    Limit {
+        n: u32,
+        offset: Option<u32>,
+    },
+    Set {
+        key: String,
+        value: String,
+    },
+    Sort {
+        columns: Option<Vec<String>>,
+        desc: Option<bool>,
+    },
+    Count {
+        column: Option<String>,
+    },
     Buckets,
-    /// Computes the area under the curve per unit of time of subsequent non-null records.
-    /// The curve is defined using `_time` as the domain and record values as the range.
     Integral {
         unit: String,
-        column: String,
-        time_column: String,
+        column: Option<String>,
+        time_column: Option<String>,
     },
-    /// Duplicates a specified column in a table.
     Duplicate {
-        /// The column name to duplicate.
         column: String,
-        /// The name assigned to the duplicate column.
         r#as: String,
     },
-    /// Outputs the group key of input tables.
-    /// For each input table, it outputs a table with the same group key columns,
-    /// plus a _value column containing the labels of the input table's group key.
     Keys {
-        /// Column is the name of the output column to store the group key labels. Defaults to `_value`.
         column: Option<String>,
+    },
+    Pivot {
+        row_key: Vec<String>,
+        column_key: Vec<String>,
+        value_column: String,
     },
 }
 
@@ -389,32 +531,63 @@ impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Function::From { bucket } => write!(f, r#"from(bucket: "{}")"#, bucket),
-            Function::Range { start, stop } => {
-                write!(f, r#"range(start: {}, stop: {})"#, start, stop)
-            }
-            Function::Filter { function, on_empty } => {
-                write!(f, r#"filter(fn: {}, onEmpty: "{}")"#, function, on_empty)
-            }
-            Function::Group { columns, mode } => write!(
-                f,
-                r#"group(columns: [{}], mode:"{}")"#,
-                comma_join_strings(columns),
-                mode
-            ),
+            Function::Range { start, stop } => match stop {
+                Some(stop) => {
+                    write!(f, r#"range(start: {}, stop: {})"#, start, stop)
+                }
+                None => {
+                    write!(f, r#"range(start: {})"#, start)
+                }
+            },
+            Function::Filter { function, on_empty } => match on_empty {
+                Some(on_empty) => {
+                    write!(f, r#"filter(fn: {}, onEmpty: "{}")"#, function, on_empty)
+                }
+                None => {
+                    write!(f, r#"filter(fn: {})"#, function)
+                }
+            },
+            Function::Group { columns, mode } => match mode {
+                Some(mode) => {
+                    write!(
+                        f,
+                        r#"group(columns: [{}], mode:"{}")"#,
+                        comma_join_strings(columns),
+                        mode
+                    )
+                }
+                None => {
+                    write!(f, r#"group(columns: [{}])"#, comma_join_strings(columns),)
+                }
+            },
             Function::Yield { name } => write!(f, r#"yield(name: "{}")"#, name),
-            Function::Keep { columns, function } => write!(
-                f,
-                r#"keep(columns: [{}], fn: {})"#,
-                comma_join_strings(columns),
-                function
-            ),
-            Function::Drop { columns, function } => write!(
-                f,
-                r#"drop(columns: [{}], fn: {})"#,
-                comma_join_strings(columns),
-                function
-            ),
-            Function::Tail { n, offset } => write!(f, r#"tail(n: {}, offset: {})"#, n, offset),
+            Function::Keep { columns, function } => match (columns, function) {
+                (None, Some(function)) => {
+                    write!(f, r#"keep(fn: "{}")"#, function)
+                }
+                (Some(columns), None) => {
+                    write!(f, r#"keep(columns: [{}])"#, comma_join_strings(columns),)
+                }
+                _ => panic!("invalid instance of `Function::Keep`"),
+            },
+
+            Function::Drop { columns, function } => match (columns, function) {
+                (Some(columns), None) => {
+                    write!(f, r#"drop(columns: [{}])"#, comma_join_strings(columns),)
+                }
+                (None, Some(function)) => {
+                    write!(f, r#"drop(fn: "{}")"#, function)
+                }
+                _ => panic!("invalid instance of `Function::Keep`"),
+            },
+            Function::Tail { n, offset } => match offset {
+                Some(offset) => {
+                    write!(f, r#"tail(n: {}, offset: {})"#, n, offset)
+                }
+                None => {
+                    write!(f, r#"tail(n: {})"#, n)
+                }
+            },
             Function::Contains { value, set } => write!(
                 f,
                 r#"contains(value: {}, set: [{}])"#,
@@ -424,25 +597,70 @@ impl Display for Function {
             Function::Distinct { column } => write!(f, r#"distinct(column: "{}")"#, column),
             Function::Max => write!(f, "max()"),
             Function::Min => write!(f, "min()"),
-            Function::Limit { n, offset } => write!(f, r#"limit(n: {}, offset: {})"#, n, offset),
+            Function::Limit { n, offset } => match offset {
+                Some(offset) => {
+                    write!(f, r#"limit(n: {}, offset: {})"#, n, offset)
+                }
+                None => {
+                    write!(f, r#"limit(n: {})"#, n)
+                }
+            },
             Function::Set { key, value } => write!(f, r#"set(key: "{}", value: "{}")"#, key, value),
-            Function::Sort { columns, desc } => write!(
-                f,
-                r#"sort(columns: [{}], desc: {}"#,
-                comma_join_strings(columns),
-                desc
-            ),
-            Function::Count { column } => write!(f, r#"count(column: "{}")"#, column),
+            Function::Sort { columns, desc } => match (columns, desc) {
+                (None, None) => {
+                    write!(f, r#"sort()"#)
+                }
+                (None, Some(desc)) => {
+                    write!(f, r#"sort(desc: {}"#, desc)
+                }
+                (Some(columns), None) => {
+                    write!(f, r#"sort(columns: [{}])"#, comma_join_strings(columns))
+                }
+                (Some(columns), Some(desc)) => {
+                    write!(
+                        f,
+                        r#"sort(columns: [{}], desc: {})"#,
+                        comma_join_strings(columns),
+                        desc
+                    )
+                }
+            },
+            Function::Count { column } => match column {
+                Some(column) => {
+                    write!(f, r#"count(column: "{}")"#, column)
+                }
+                None => {
+                    write!(f, r#"count()"#)
+                }
+            },
             Function::Buckets => write!(f, r#"buckets()"#),
             Function::Integral {
                 unit,
                 column,
                 time_column,
-            } => write!(
-                f,
-                r#"integral(unit: {}, column: "{}", timeColumn: "{}")"#,
-                unit, column, time_column
-            ),
+            } => match (column, time_column) {
+                (None, None) => {
+                    write!(f, r#"integral(unit: {})"#, unit)
+                }
+                (None, Some(time_column)) => {
+                    write!(
+                        f,
+                        r#"integral(unit: {}, timeColumn: "{}")"#,
+                        unit, time_column
+                    )
+                }
+                (Some(column), None) => {
+                    write!(f, r#"integral(unit: {}, column: "{}")"#, unit, column)
+                }
+                (Some(column), Some(time_column)) => {
+                    write!(
+                        f,
+                        r#"integral(unit: {}, column: "{}", timeColumn: "{}")"#,
+                        unit, column, time_column
+                    )
+                }
+            },
+
             Function::Duplicate { column, r#as } => {
                 write!(f, r#"duplicate(column: "{}", as: "{}")"#, column, r#as)
             }
@@ -454,6 +672,19 @@ impl Display for Function {
                     write!(f, r#"keys()"#)
                 }
             },
+            Function::Pivot {
+                row_key,
+                column_key,
+                value_column,
+            } => {
+                write!(
+                    f,
+                    r#"pivot(rowKey: [{}], columnKey: [{}], valueColumn: "{}")"#,
+                    comma_join_strings(row_key),
+                    comma_join_strings(column_key),
+                    value_column
+                )
+            }
         }
     }
 }
@@ -498,11 +729,11 @@ mod tests {
             })
             .with(Function::Range {
                 start: 1602404530510000000,
-                stop: 1602404530610000000,
+                stop: Some(1602404530610000000),
             })
             .with(Function::Filter {
                 function: r#"(r) => r["_measurement"] == "handle_request""#.into(),
-                on_empty: OnEmpty::Drop,
+                on_empty: Some(OnEmpty::Drop),
             })
             .with(Function::Contains {
                 value: TypeValue::String("string".into()),
@@ -513,15 +744,15 @@ mod tests {
             })
             .with(Function::Group {
                 columns: vec!["host".into(), "_measurement".into()],
-                mode: GroupMode::By,
+                mode: Some(GroupMode::By),
             });
 
         let query2 = Query::new()
             .from("server")
-            .range(1602404530510000000, 1602404530610000000)
+            .range(1602404530510000000, Some(1602404530610000000))
             .filter(
                 r#"(r) => r["_measurement"] == "handle_request""#,
-                OnEmpty::Drop,
+                Some(OnEmpty::Drop),
             )
             .contains(
                 TypeValue::String("string".into()),
@@ -530,7 +761,10 @@ mod tests {
                     TypeValue::String("string2".into()),
                 ],
             )
-            .group(vec!["host".into(), "_measurement".into()], GroupMode::By);
+            .group(
+                vec!["host".into(), "_measurement".into()],
+                Some(GroupMode::By),
+            );
 
         assert_eq!(query1, query2);
     }
