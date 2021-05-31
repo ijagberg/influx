@@ -104,16 +104,15 @@ impl From<&str> for Field {
 
 /// Represents a point of measurement in Influx
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub struct Measurement {
     /// Name of measurement
-    pub measurement_name: String,
+    measurement_name: String,
     /// Timestamp of measurement as a Unix Epoch (ms)
-    pub timestamp_ms: u128,
+    timestamp_ms: u128,
     /// Tags of measurement
-    pub tags: HashMap<String, String>,
+    tags: HashMap<String, String>,
     /// Fields of measurement
-    pub fields: HashMap<String, Field>,
+    fields: HashMap<String, Field>,
 }
 
 impl Measurement {
