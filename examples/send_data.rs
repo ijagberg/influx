@@ -1,4 +1,5 @@
-use influx::{InfluxClient, Measurement};
+use chrono::{Duration, Utc};
+use influx::{InfluxClient, Measurement, Query};
 
 #[tokio::main]
 async fn main() {
@@ -15,11 +16,25 @@ async fn main() {
     let client = InfluxClient::builder(address, key, org).build().unwrap();
 
     let response = client
-        .send_batch(&bucket, &get_example_measurements())
+        .write(&bucket, &get_example_measurements())
         .await
         .unwrap();
-    let body = response.text().await.unwrap();
-    println!("{:#?}", body);
+    if response.status().is_success() {
+        let response = client
+            .query(
+                Query::new(format!(r#"from(bucket: "{}")"#, bucket))
+                    .then(format!(
+                        r#"range(start: {}, stop: {})"#,
+                        five_minutes_ago(),
+                        five_minutes_from_now()
+                    ))
+                    .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#),
+            )
+            .await
+            .unwrap();
+
+        println!("{:#?}", response);
+    }
 }
 
 fn get_example_measurements() -> Vec<Measurement> {
@@ -32,4 +47,12 @@ fn get_example_measurements() -> Vec<Measurement> {
         .unwrap();
 
     vec![m1]
+}
+
+fn five_minutes_ago() -> i64 {
+    (Utc::now() - Duration::minutes(5)).timestamp()
+}
+
+fn five_minutes_from_now() -> i64 {
+    (Utc::now() + Duration::minutes(5)).timestamp()
 }

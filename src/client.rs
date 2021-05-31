@@ -1,6 +1,6 @@
 use crate::{query::Query, Measurement};
 use reqwest::Method;
-use std::fmt::Display;
+use std::{error::Error, fmt::Display};
 
 pub use reqwest::Response;
 
@@ -25,11 +25,11 @@ impl InfluxClient {
         InfluxClientBuilder::new(url, key, org)
     }
 
-    pub async fn send_batch(
+    pub async fn write(
         &self,
         bucket: &str,
         measurements: &[Measurement],
-    ) -> Result<Response, InfluxClientError> {
+    ) -> Result<Response, InfluxError> {
         let payload = measurements
             .iter()
             .map(|m| m.to_line_protocol())
@@ -49,17 +49,15 @@ impl InfluxClient {
             .await?)
     }
 
-    pub async fn send_query(&self, query: Query) -> Result<Response, InfluxClientError> {
+    pub async fn query(&self, query: Query) -> Result<String, InfluxError> {
         let payload = query.to_string();
 
-        debug!("sending query: {}", payload);
+        let url = format!("{}/api/v2/query?org={}", self.url, self.org);
+        debug!("posting query to influx at '{}': '{}'", url, payload);
 
         let request = self
             .http_client
-            .request(
-                Method::POST,
-                &format!("{}/api/v2/query?org={}", self.url, self.org),
-            )
+            .request(Method::POST, &url)
             .header("Authorization", format!("Token {}", &self.key))
             .header("Content-type", "application/vnd.flux")
             .header("Accept", "application/csv")
@@ -68,7 +66,12 @@ impl InfluxClient {
 
         let response = self.http_client.execute(request).await?;
 
-        Ok(response)
+        if !response.status().is_success() {
+            return Err(InfluxError::NonSuccessResponse(response));
+        }
+
+        let body = response.text().await?;
+        Ok(body)
     }
 }
 
@@ -97,22 +100,26 @@ impl InfluxClientBuilder {
 pub enum InfluxClientBuilderError {}
 
 #[derive(Debug)]
-pub enum InfluxClientError {
+pub enum InfluxError {
     ReqwestError(reqwest::Error),
+    NonSuccessResponse(Response),
 }
 
-impl From<reqwest::Error> for InfluxClientError {
+impl Error for InfluxError {}
+
+impl From<reqwest::Error> for InfluxError {
     fn from(err: reqwest::Error) -> Self {
         Self::ReqwestError(err)
     }
 }
 
-impl Display for InfluxClientError {
+impl Display for InfluxError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            InfluxClientError::ReqwestError(e) => {
+            InfluxError::ReqwestError(e) => {
                 format!("reqwest error: '{}'", e)
             }
+            InfluxError::NonSuccessResponse(e) => format!("non-success response: '{}'", e.status()),
         };
 
         write!(f, "{}", output)
