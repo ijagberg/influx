@@ -1,18 +1,19 @@
-use std::{convert::TryInto, fmt::Debug};
-
 use chrono::{DateTime, TimeZone, Utc};
+use std::{
+    collections::HashMap, convert::TryInto, fmt::Display, time::SystemTime, time::SystemTimeError,
+};
+
 pub use client::InfluxClient;
+pub use query::Query;
 
-pub mod client;
-pub mod query;
-
-use std::{collections::HashMap, fmt::Display, time::SystemTime, time::SystemTimeError};
+mod client;
+mod query;
 
 #[macro_use]
 extern crate log;
 
 /// Represents various supported field values
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Field {
     /// A float field
     Float(f64),
@@ -102,7 +103,7 @@ impl From<&str> for Field {
 }
 
 /// Represents a point of measurement in Influx
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct Measurement {
     /// Name of measurement
@@ -116,6 +117,20 @@ pub struct Measurement {
 }
 
 impl Measurement {
+    pub fn new(
+        measurement_name: String,
+        timestamp_ms: u128,
+        tags: HashMap<String, String>,
+        fields: HashMap<String, Field>,
+    ) -> Self {
+        Self {
+            measurement_name,
+            timestamp_ms,
+            tags,
+            fields,
+        }
+    }
+
     pub fn builder(measurement_name: impl Into<String>) -> MeasurementBuilder {
         MeasurementBuilder::new(measurement_name)
     }
@@ -189,17 +204,17 @@ impl MeasurementBuilder {
         }
     }
 
-    pub fn with_tag(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn tag(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.push((name.into(), value.into()));
         self
     }
 
-    pub fn with_field(mut self, name: impl Into<String>, value: impl Into<Field>) -> Self {
+    pub fn field(mut self, name: impl Into<String>, value: impl Into<Field>) -> Self {
         self.fields.push((name.into(), value.into()));
         self
     }
 
-    pub fn with_timestamp(mut self, timestamp: u128) -> Self {
+    pub fn timestamp(mut self, timestamp: u128) -> Self {
         self.timestamp = Some(timestamp);
         self
     }
@@ -216,12 +231,12 @@ impl MeasurementBuilder {
                     .map_err(MeasurementBuilderError::TimestampError)?
                     .as_millis()
             };
-            Ok(Measurement {
-                measurement_name: self.name,
-                fields: self.fields.into_iter().collect(),
-                tags: self.tags.into_iter().collect(),
+            Ok(Measurement::new(
+                self.name,
                 timestamp_ms,
-            })
+                self.tags.into_iter().collect(),
+                self.fields.into_iter().collect(),
+            ))
         }
     }
 }
@@ -252,17 +267,39 @@ mod tests {
     #[test]
     fn measurement() {
         let m = Measurement::builder("example_measurement")
-            .with_tag("tag_1", "tag_value_1")
-            .with_tag("tag_2", "tag_value_2")
-            .with_field("bool_field", true)
-            .with_field("uinteger_field", 100_u16)
-            .with_field("integer_field", -100)
-            .with_field("float_field", 10.123)
-            .with_field("string_field", "string_value")
-            .with_timestamp(1602321877560)
+            .tag("tag_1", "tag_value_1")
+            .tag("tag_2", "tag_value_2")
+            .field("bool_field", true)
+            .field("uinteger_field", 100_u16)
+            .field("integer_field", -100)
+            .field("float_field", 10.123)
+            .field("string_field", "string_value")
+            .timestamp(1602321877560)
             .build()
             .unwrap();
 
         println!("{:?}", m);
+
+        assert_eq!(
+            m,
+            Measurement {
+                measurement_name: "example_measurement".to_string(),
+                tags: vec![("tag_1", "tag_value_1"), ("tag_2", "tag_value_2")]
+                    .into_iter()
+                    .map(|(name, value)| (name.to_string(), value.to_string()))
+                    .collect(),
+                fields: vec![
+                    ("bool_field", Field::Bool(true)),
+                    ("uinteger_field", Field::UInteger(100)),
+                    ("integer_field", Field::Integer(-100)),
+                    ("float_field", Field::Float(10.123)),
+                    ("string_field", Field::String("string_value".to_string()))
+                ]
+                .into_iter()
+                .map(|(name, value)| (name.to_string(), value))
+                .collect(),
+                timestamp_ms: 1602321877560
+            }
+        );
     }
 }

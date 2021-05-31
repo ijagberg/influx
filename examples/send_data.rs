@@ -24,10 +24,10 @@ async fn main() {
 
 fn get_example_measurements() -> Vec<Measurement> {
     let m1 = Measurement::builder("m1")
-        .with_tag("tag1", "tag1_value")
-        .with_tag("tag2", "tag2_value")
-        .with_field("field1", "string_value")
-        .with_field("field2", true)
+        .tag("tag1", "tag1_value")
+        .tag("tag2", "tag2_value")
+        .field("field1", "string_value")
+        .field("field2", true)
         .build()
         .unwrap();
 
