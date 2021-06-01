@@ -15,26 +15,23 @@ async fn main() {
 
     let client = InfluxClient::builder(address, key, org).build().unwrap();
 
-    let response = client
+    client
         .write(&bucket, &get_example_measurements())
         .await
         .unwrap();
-    if response.status().is_success() {
-        let response = client
-            .query(
-                Query::new(format!(r#"from(bucket: "{}")"#, bucket))
-                    .then(format!(
-                        r#"range(start: {}, stop: {})"#,
-                        five_minutes_ago(),
-                        five_minutes_from_now()
-                    ))
-                    .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#)
-                    .then(r#"keep(columns: ["tag1"])"#),
-            )
-            .await
-            .unwrap();
-        println!("received following records: {:#?}", response);
-    }
+    let response = client
+        .query(
+            Query::new(format!(r#"from(bucket: "{}")"#, bucket))
+                .then(format!(
+                    r#"range(start: {}, stop: {})"#,
+                    five_minutes_ago(),
+                    five_minutes_from_now()
+                ))
+                .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#)
+        )
+        .await
+        .unwrap();
+    println!("received following records: {:#?}", response);
 }
 
 fn get_example_measurements() -> Vec<Measurement> {

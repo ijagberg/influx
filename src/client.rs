@@ -1,18 +1,16 @@
 use crate::{query::Query, Measurement};
-use reqwest::Method;
+use isahc::{AsyncReadResponseExt, HttpClient};
 use std::{collections::HashMap, error::Error, fmt::Display};
-
-pub use reqwest::Response;
 
 pub struct InfluxClient {
     url: String,
     key: String,
     org: String,
-    http_client: reqwest::Client,
+    http_client: HttpClient,
 }
 
 impl InfluxClient {
-    fn new(url: String, key: String, org: String, http_client: reqwest::Client) -> Self {
+    fn new(url: String, key: String, org: String, http_client: HttpClient) -> Self {
         Self {
             url,
             key,
@@ -29,7 +27,7 @@ impl InfluxClient {
         &self,
         bucket: &str,
         measurements: &[Measurement],
-    ) -> Result<Response, InfluxError> {
+    ) -> Result<(), InfluxError> {
         let payload = measurements
             .iter()
             .map(|m| m.to_line_protocol())
@@ -39,14 +37,20 @@ impl InfluxClient {
             "{}/api/v2/write?org={}&bucket={}&precision=ms",
             self.url, self.org, bucket
         );
+        
         info!("posting payload to influx at '{}': '{}'", url, payload);
-        Ok(self
-            .http_client
-            .post(&url)
+
+        let request = isahc::Request::builder()
+            .uri(url)
+            .method("POST")
             .header("Authorization", format!("Token {}", &self.key))
-            .body(payload)
-            .send()
-            .await?)
+            .body(payload)?;
+        let mut response = self.http_client.send_async(request).await?;
+        if !response.status().is_success() {
+            let body = response.text().await?;
+            return Err(InfluxError::NonSuccessResponse(response.status(), body));
+        }
+        Ok(())
     }
 
     pub async fn query(&self, query: Query) -> Result<Vec<HashMap<String, String>>, InfluxError> {
@@ -55,20 +59,19 @@ impl InfluxClient {
         let url = format!("{}/api/v2/query?org={}", self.url, self.org);
         debug!("posting query to influx at '{}': '{}'", url, payload);
 
-        let request = self
-            .http_client
-            .request(Method::POST, &url)
+        let request = isahc::Request::builder()
+            .uri(&url)
+            .method("POST")
             .header("Authorization", format!("Token {}", &self.key))
-            .header("Content-type", "application/vnd.flux")
+            .header("Content-Type", "application/vnd.flux")
             .header("Accept", "application/csv")
-            .body(payload)
-            .build()?;
+            .body(payload)?;
 
-        let response = self.http_client.execute(request).await?;
+        let mut response = self.http_client.send_async(request).await?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.ok();
+            let body = response.text().await?;
             return Err(InfluxError::NonSuccessResponse(status, body));
         }
 
@@ -113,7 +116,7 @@ impl InfluxClientBuilder {
             self.url,
             self.key,
             self.org,
-            reqwest::Client::new(),
+            isahc::HttpClient::new().unwrap(),
         ))
     }
 }
@@ -123,16 +126,30 @@ pub enum InfluxClientBuilderError {}
 
 #[derive(Debug)]
 pub enum InfluxError {
-    ReqwestError(reqwest::Error),
+    HttpError(isahc::http::Error),
+    IsahcError(isahc::Error),
+    IoError(std::io::Error),
     CsvError(csv::Error),
-    NonSuccessResponse(reqwest::StatusCode, Option<String>),
+    NonSuccessResponse(isahc::http::StatusCode, String),
 }
 
 impl Error for InfluxError {}
 
-impl From<reqwest::Error> for InfluxError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::ReqwestError(err)
+impl From<isahc::Error> for InfluxError {
+    fn from(err: isahc::Error) -> Self {
+        Self::IsahcError(err)
+    }
+}
+
+impl From<std::io::Error> for InfluxError {
+    fn from(err: std::io::Error) -> Self {
+        Self::IoError(err)
+    }
+}
+
+impl From<isahc::http::Error> for InfluxError {
+    fn from(err: isahc::http::Error) -> Self {
+        Self::HttpError(err)
     }
 }
 
@@ -145,14 +162,13 @@ impl From<csv::Error> for InfluxError {
 impl Display for InfluxError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            InfluxError::ReqwestError(e) => {
-                format!("reqwest error: '{}'", e)
+            InfluxError::NonSuccessResponse(status, body) => {
+                format!("non-success response: '{}', body: '{}'", status, body)
             }
-            InfluxError::NonSuccessResponse(status, body) => match body {
-                Some(body) => format!("non-success response: '{}', body: '{}'", status, body),
-                None => format!("non-success response: '{}'", status),
-            },
-            InfluxError::CsvError(e) => format!("csv error: '{}'", e),
+            InfluxError::CsvError(err) => format!("csv error: '{}'", err),
+            InfluxError::HttpError(err) => format!("http error: '{}'", err),
+            InfluxError::IsahcError(err) => format!("isahc error: '{}'", err),
+            InfluxError::IoError(err) => format!("io error: '{}'", err),
         };
 
         write!(f, "{}", output)
