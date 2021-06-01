@@ -1,5 +1,5 @@
 use chrono::{Duration, Utc};
-use influx::{InfluxClient, Measurement, Query};
+use influxrs::{InfluxClient, Measurement, Query};
 
 #[tokio::main]
 async fn main() {
@@ -27,7 +27,7 @@ async fn main() {
                     five_minutes_ago(),
                     five_minutes_from_now()
                 ))
-                .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#)
+                .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#),
         )
         .await
         .unwrap();

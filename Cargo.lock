@@ -324,7 +324,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "influx"
+name = "influxrs"
 version = "0.1.0"
 dependencies = [
  "chrono",
