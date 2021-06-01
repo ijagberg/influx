@@ -30,3 +30,18 @@ let response = client
     .await
     .unwrap();
 ```
+When querying data, a `Vec<HashMap<String, String>>` is returned, containing individual csv records:
+```
+{
+    "result": "_result",
+    "_value": "string_value",
+    "table": "0",
+    "_start": "2021-06-01T11:13:15Z",
+    "_field": "field1",
+    "tag1": "tag1_value",
+    "tag2": "tag2_value",
+    "_time": "2021-06-01T11:16:05.684Z",
+    "_measurement": "m1",
+    "_stop": "2021-06-01T11:23:15Z",
+}
+```

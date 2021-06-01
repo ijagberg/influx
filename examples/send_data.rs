@@ -28,12 +28,12 @@ async fn main() {
                         five_minutes_ago(),
                         five_minutes_from_now()
                     ))
-                    .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#),
+                    .then(r#"filter(fn: (r) => r["_measurement"] == "m1")"#)
+                    .then(r#"keep(columns: ["tag1"])"#),
             )
             .await
             .unwrap();
-
-        println!("{:#?}", response);
+        println!("received following records: {:#?}", response);
     }
 }
 

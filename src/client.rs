@@ -1,6 +1,6 @@
 use crate::{query::Query, Measurement};
 use reqwest::Method;
-use std::{error::Error, fmt::Display};
+use std::{collections::HashMap, error::Error, fmt::Display};
 
 pub use reqwest::Response;
 
@@ -49,7 +49,7 @@ impl InfluxClient {
             .await?)
     }
 
-    pub async fn query(&self, query: Query) -> Result<String, InfluxError> {
+    pub async fn query(&self, query: Query) -> Result<Vec<HashMap<String, String>>, InfluxError> {
         let payload = query.to_string();
 
         let url = format!("{}/api/v2/query?org={}", self.url, self.org);
@@ -67,11 +67,33 @@ impl InfluxClient {
         let response = self.http_client.execute(request).await?;
 
         if !response.status().is_success() {
-            return Err(InfluxError::NonSuccessResponse(response));
+            let status = response.status();
+            let body = response.text().await.ok();
+            return Err(InfluxError::NonSuccessResponse(status, body));
         }
 
         let body = response.text().await?;
-        Ok(body)
+
+        trace!("response body: '{}'", body);
+
+        let lines: Vec<String> = body.lines().map(|l| l.trim().to_owned()).collect();
+        let tables: Vec<_> = lines
+            .split(|t| t.is_empty())
+            .filter(|t| !t.is_empty())
+            .map(|t| t.join("\n"))
+            .collect();
+
+        let mut records = Vec::new();
+        for table in tables {
+            let mut reader = csv::Reader::from_reader(table.as_bytes());
+            for result in reader.deserialize() {
+                let mut record: HashMap<String, String> = result?;
+                record.remove("");
+                records.push(record);
+            }
+        }
+
+        Ok(records)
     }
 }
 
@@ -102,7 +124,8 @@ pub enum InfluxClientBuilderError {}
 #[derive(Debug)]
 pub enum InfluxError {
     ReqwestError(reqwest::Error),
-    NonSuccessResponse(Response),
+    CsvError(csv::Error),
+    NonSuccessResponse(reqwest::StatusCode, Option<String>),
 }
 
 impl Error for InfluxError {}
@@ -113,13 +136,23 @@ impl From<reqwest::Error> for InfluxError {
     }
 }
 
+impl From<csv::Error> for InfluxError {
+    fn from(err: csv::Error) -> Self {
+        Self::CsvError(err)
+    }
+}
+
 impl Display for InfluxError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
             InfluxError::ReqwestError(e) => {
                 format!("reqwest error: '{}'", e)
             }
-            InfluxError::NonSuccessResponse(e) => format!("non-success response: '{}'", e.status()),
+            InfluxError::NonSuccessResponse(status, body) => match body {
+                Some(body) => format!("non-success response: '{}', body: '{}'", status, body),
+                None => format!("non-success response: '{}'", status),
+            },
+            InfluxError::CsvError(e) => format!("csv error: '{}'", e),
         };
 
         write!(f, "{}", output)
