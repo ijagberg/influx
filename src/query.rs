@@ -15,7 +15,7 @@ impl Query {
     ///
     /// ## Example
     /// ```rust
-    /// # use influx::Query;
+    /// # use influxrs::Query;
     /// let query = Query::raw(r#"from(bucket: "server")
     ///     |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
     ///     |> filter(fn: (r) => r["_measurement"] == "example_measurement")
@@ -37,7 +37,7 @@ impl Query {
     ///
     /// ## Example
     /// ```rust
-    /// # use influx::Query;
+    /// # use influxrs::Query;
     /// let query = Query::new(r#"from(bucket: "example_bucket")"#)
     ///     .then(r#"filter(fn: (r) => r["_measurement"] == "example_measurement")"#);
     /// ```
