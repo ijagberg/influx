@@ -37,7 +37,7 @@ impl InfluxClient {
             "{}/api/v2/write?org={}&bucket={}&precision=ms",
             self.url, self.org, bucket
         );
-        
+
         info!("posting payload to influx at '{}': '{}'", url, payload);
 
         let request = isahc::Request::builder()
@@ -122,9 +122,6 @@ impl InfluxClientBuilder {
 }
 
 #[derive(Debug)]
-pub enum InfluxClientBuilderError {}
-
-#[derive(Debug)]
 pub enum InfluxError {
     HttpError(isahc::http::Error),
     IsahcError(isahc::Error),
@@ -172,5 +169,16 @@ impl Display for InfluxError {
         };
 
         write!(f, "{}", output)
+    }
+}
+
+#[derive(Debug)]
+pub enum InfluxClientBuilderError {}
+
+impl Error for InfluxClientBuilderError {}
+
+impl Display for InfluxClientBuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error building influx client")
     }
 }

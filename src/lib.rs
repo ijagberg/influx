@@ -1,6 +1,7 @@
 use chrono::{DateTime, TimeZone, Utc};
 use std::{
-    collections::HashMap, convert::TryInto, fmt::Display, time::SystemTime, time::SystemTimeError,
+    collections::HashMap, convert::TryInto, error::Error, fmt::Display, time::SystemTime,
+    time::SystemTimeError,
 };
 
 pub use client::InfluxClient;
@@ -249,7 +250,7 @@ pub enum MeasurementBuilderError {
 impl Display for MeasurementBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
-            MeasurementBuilderError::EmptyFields => format!("fields cannot be empty"),
+            MeasurementBuilderError::EmptyFields => "fields cannot be empty".to_string(),
             MeasurementBuilderError::TimestampError(err) => {
                 format!("error evaluating timestamp: '{}'", err)
             }
@@ -258,6 +259,8 @@ impl Display for MeasurementBuilderError {
         write!(f, "{}", output)
     }
 }
+
+impl Error for MeasurementBuilderError {}
 
 #[cfg(test)]
 mod tests {
