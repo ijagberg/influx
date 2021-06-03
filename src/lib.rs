@@ -267,6 +267,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn field_from() {
+        assert_eq!(Field::from(1_i8), Field::Integer(1));
+        assert_eq!(Field::from(2_i16), Field::Integer(2));
+        assert_eq!(Field::from(3_i32), Field::Integer(3));
+        assert_eq!(Field::from(4_i64), Field::Integer(4));
+        assert_eq!(Field::from(5_i128), Field::Integer(5));
+
+        assert_eq!(Field::from(1_u8), Field::UInteger(1));
+        assert_eq!(Field::from(2_u16), Field::UInteger(2));
+        assert_eq!(Field::from(3_u32), Field::UInteger(3));
+        assert_eq!(Field::from(4_u64), Field::UInteger(4));
+        assert_eq!(Field::from(5_u128), Field::UInteger(5));
+
+        assert_eq!(Field::from(1.5_f32), Field::Float(1.5));
+        assert_eq!(Field::from(2.5_f64), Field::Float(2.5));
+
+        assert_eq!(Field::from(true), Field::Bool(true));
+        assert_eq!(Field::from(false), Field::Bool(false));
+
+        assert_eq!(Field::from("s".to_string()), Field::String("s".to_string()));
+    }
+
+    #[test]
     fn measurement() {
         let m = Measurement::builder("example_measurement")
             .tag("tag_1", "tag_value_1")
