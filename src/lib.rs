@@ -1,8 +1,5 @@
 use chrono::{DateTime, TimeZone, Utc};
-use std::{
-    collections::HashMap, convert::TryInto, error::Error, fmt::Display, time::SystemTime,
-    time::SystemTimeError,
-};
+use std::{collections::HashMap, convert::TryInto, error::Error, fmt::Display, time::SystemTime};
 
 pub use client::InfluxClient;
 pub use query::Query;
@@ -13,7 +10,9 @@ mod query;
 #[macro_use]
 extern crate log;
 
-/// Represents various supported field values
+/// Represents various supported field values.
+///
+/// Fields can be floats, strings, bools, signed and unsigned integers.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Field {
     /// A float field
@@ -104,6 +103,20 @@ impl From<&str> for Field {
 }
 
 /// Represents a point of measurement in Influx
+///
+/// ## Example
+/// To create a measurement, you can either call `new` directly, or use the builder method:
+/// ```rust
+/// # use influxrs::*;
+/// let measurement = Measurement::builder("gps")
+///     .field("latitude", 40.447992135544304)
+///     .field("longitude", -3.689346313476562)
+///     .tag("country", "Spain")
+///     .tag("city", "Madrid")
+///     .timestamp(1622888382963) //if no timestamp is specified, the current time is used
+///     .build()
+///     .unwrap(); // building can fail if no fields are specified
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Measurement {
     /// Name of measurement
@@ -228,7 +241,7 @@ impl MeasurementBuilder {
             } else {
                 SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
-                    .map_err(MeasurementBuilderError::TimestampError)?
+                    .expect("could not get current timestamp")
                     .as_millis()
             };
             Ok(Measurement::new(
@@ -244,16 +257,12 @@ impl MeasurementBuilder {
 #[derive(Debug)]
 pub enum MeasurementBuilderError {
     EmptyFields,
-    TimestampError(SystemTimeError),
 }
 
 impl Display for MeasurementBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
             MeasurementBuilderError::EmptyFields => "fields cannot be empty".to_string(),
-            MeasurementBuilderError::TimestampError(err) => {
-                format!("error evaluating timestamp: '{}'", err)
-            }
         };
 
         write!(f, "{}", output)

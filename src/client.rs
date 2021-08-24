@@ -23,6 +23,7 @@ impl InfluxClient {
         InfluxClientBuilder::new(url, key, org)
     }
 
+    /// Write data to the specified bucket.
     pub async fn write(
         &self,
         bucket: &str,
