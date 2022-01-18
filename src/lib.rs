@@ -1,7 +1,7 @@
 use chrono::{DateTime, TimeZone, Utc};
 use std::{collections::HashMap, convert::TryInto, error::Error, fmt::Display, time::SystemTime};
 
-pub use client::InfluxClient;
+pub use client::{InfluxClient, InfluxClientBuilder, InfluxClientBuilderError, InfluxError};
 pub use query::Query;
 
 mod client;
