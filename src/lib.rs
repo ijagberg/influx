@@ -126,7 +126,7 @@ impl From<&str> for Field {
 ///     .field("longitude", -3.689346313476562)
 ///     .tag("country", "Spain")
 ///     .tag("city", "Madrid")
-///     .timestamp(1622888382963) //if no timestamp is specified, the current time is used
+///     .timestamp_ms(1622888382963) //if no timestamp is specified, the current time is used
 ///     .build()
 ///     .unwrap(); // building can fail if no fields are specified
 /// ```
