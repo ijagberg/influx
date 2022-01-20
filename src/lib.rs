@@ -13,6 +13,16 @@ mod query;
 #[macro_use]
 extern crate log;
 
+#[derive(Debug, Clone, PartialEq)]
+struct TagValue(String);
+
+impl TagValue {
+    fn new(s: String) -> Self {
+        let s = s.replace(" ", "\\ ");
+        Self(s)
+    }
+}
+
 /// Represents various supported field values.
 ///
 /// Fields can be floats, strings, bools, signed and unsigned integers.
@@ -127,16 +137,16 @@ pub struct Measurement {
     /// Timestamp of measurement as a Unix Epoch (ms)
     timestamp_ms: u128,
     /// Tags of measurement
-    tags: HashMap<String, String>,
+    tags: HashMap<String, TagValue>,
     /// Fields of measurement
     fields: HashMap<String, Field>,
 }
 
 impl Measurement {
-    pub fn new(
+    fn new(
         measurement_name: String,
         timestamp_ms: u128,
-        tags: HashMap<String, String>,
+        tags: HashMap<String, TagValue>,
         fields: HashMap<String, Field>,
     ) -> Self {
         Self {
@@ -158,7 +168,7 @@ impl Measurement {
 
     /// Add a tag to the measurement.
     pub fn add_tag(&mut self, name: impl Into<String>, value: impl Into<String>) {
-        self.tags.insert(name.into(), value.into());
+        self.tags.insert(name.into(), TagValue::new(value.into()));
     }
 
     fn measurement_part(&self) -> &str {
@@ -168,7 +178,7 @@ impl Measurement {
     fn tags_part(&self) -> String {
         self.tags
             .iter()
-            .map(|(name, value)| format!("{}={}", name, value))
+            .map(|(name, value)| format!("{}={}", name, value.0))
             .collect::<Vec<_>>()
             .join(",")
     }
@@ -204,7 +214,7 @@ impl Measurement {
 
 pub struct MeasurementBuilder {
     name: String,
-    tags: Vec<(String, String)>,
+    tags: Vec<(String, TagValue)>,
     fields: Vec<(String, Field)>,
     timestamp: Option<u128>,
 }
@@ -220,7 +230,7 @@ impl MeasurementBuilder {
     }
 
     pub fn tag(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
-        self.tags.push((name.into(), value.into()));
+        self.tags.push((name.into(), TagValue::new(value.into())));
         self
     }
 
@@ -329,7 +339,7 @@ mod tests {
                 measurement_name: "example_measurement".to_string(),
                 tags: vec![("tag_1", "tag_value_1"), ("tag_2", "tag_value_2")]
                     .into_iter()
-                    .map(|(name, value)| (name.to_string(), value.to_string()))
+                    .map(|(name, value)| (name.to_string(), TagValue::new(value.to_string())))
                     .collect(),
                 fields: vec![
                     ("bool_field", Field::Bool(true)),
