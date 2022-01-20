@@ -1,4 +1,3 @@
-use chrono::{Duration, Utc};
 use influxrs::{InfluxClient, Measurement, Query};
 
 #[tokio::main]
@@ -47,9 +46,9 @@ fn get_example_measurements() -> Vec<Measurement> {
 }
 
 fn five_minutes_ago() -> i64 {
-    (Utc::now() - Duration::minutes(5)).timestamp()
+    todo!()
 }
 
 fn five_minutes_from_now() -> i64 {
-    (Utc::now() + Duration::minutes(5)).timestamp()
+    todo!()
 }

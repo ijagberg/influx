@@ -1,8 +1,11 @@
-use chrono::{DateTime, TimeZone, Utc};
-use std::{collections::HashMap, convert::TryInto, error::Error, fmt::Display, time::SystemTime};
-
 pub use client::{InfluxClient, InfluxClientBuilder, InfluxClientBuilderError, InfluxError};
 pub use query::Query;
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt::Display,
+    time::{SystemTime, SystemTimeError},
+};
 
 mod client;
 mod query;
@@ -148,14 +151,12 @@ impl Measurement {
         MeasurementBuilder::new(measurement_name)
     }
 
-    pub fn timestamp_utc(&self) -> DateTime<Utc> {
-        Utc.timestamp_millis(self.timestamp_ms.try_into().unwrap())
-    }
-
+    /// Add a field to the measurement.
     pub fn add_field(&mut self, name: impl Into<String>, value: impl Into<Field>) {
         self.fields.insert(name.into(), value.into());
     }
 
+    /// Add a tag to the measurement.
     pub fn add_tag(&mut self, name: impl Into<String>, value: impl Into<String>) {
         self.tags.insert(name.into(), value.into());
     }
@@ -180,6 +181,7 @@ impl Measurement {
             .join(",")
     }
 
+    /// Convert this `Measurement` to Influx line protocol.
     pub fn to_line_protocol(&self) -> String {
         if self.tags.is_empty() {
             format!(
@@ -227,8 +229,8 @@ impl MeasurementBuilder {
         self
     }
 
-    pub fn timestamp(mut self, timestamp: u128) -> Self {
-        self.timestamp = Some(timestamp);
+    pub fn timestamp_ms(mut self, timestamp_ms: u128) -> Self {
+        self.timestamp = Some(timestamp_ms);
         self
     }
 
@@ -240,8 +242,7 @@ impl MeasurementBuilder {
                 timestamp_ms
             } else {
                 SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .expect("could not get current timestamp")
+                    .duration_since(SystemTime::UNIX_EPOCH)?
                     .as_millis()
             };
             Ok(Measurement::new(
@@ -257,15 +258,23 @@ impl MeasurementBuilder {
 #[derive(Debug)]
 pub enum MeasurementBuilderError {
     EmptyFields,
+    SystemTimeError(SystemTimeError),
 }
 
 impl Display for MeasurementBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let output = match self {
             MeasurementBuilderError::EmptyFields => "fields cannot be empty".to_string(),
+            MeasurementBuilderError::SystemTimeError(e) => format!("SystemTimeError: '{}'", e),
         };
 
         write!(f, "{}", output)
+    }
+}
+
+impl From<SystemTimeError> for MeasurementBuilderError {
+    fn from(e: SystemTimeError) -> Self {
+        Self::SystemTimeError(e)
     }
 }
 
@@ -308,7 +317,7 @@ mod tests {
             .field("integer_field", -100)
             .field("float_field", 10.123)
             .field("string_field", "string_value")
-            .timestamp(1602321877560)
+            .timestamp_ms(1602321877560)
             .build()
             .unwrap();
 

@@ -10,7 +10,7 @@ let measurement = Measurement::builder("m1")
     .tag("tag2", "tag2_value")
     .field("field1", "string_value")
     .field("field2", true)
-    .timestamp(1622493622)
+    .timestamp_ms(1622493622)
     .build()
     .unwrap();
 let response = client
