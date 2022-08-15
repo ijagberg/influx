@@ -2,6 +2,8 @@ use crate::{query::Query, Measurement};
 use isahc::{AsyncReadResponseExt, HttpClient};
 use std::{collections::HashMap, error::Error, fmt::Display};
 
+pub type InfluxQueryResponse = Vec<HashMap<String, String>>;
+
 pub struct InfluxClient {
     url: String,
     key: String,
@@ -39,7 +41,7 @@ impl InfluxClient {
             self.url, self.org, bucket
         );
 
-        info!("posting payload to influx at '{}': '{}'", url, payload);
+        trace!("posting payload to influx at '{}': '{}'", url, payload);
 
         let request = isahc::Request::builder()
             .uri(url)
@@ -54,11 +56,11 @@ impl InfluxClient {
         Ok(())
     }
 
-    pub async fn query(&self, query: Query) -> Result<Vec<HashMap<String, String>>, InfluxError> {
+    pub async fn query(&self, query: Query) -> Result<InfluxQueryResponse, InfluxError> {
         let payload = query.to_string();
 
         let url = format!("{}/api/v2/query?org={}", self.url, self.org);
-        debug!("posting query to influx at '{}': '{}'", url, payload);
+        trace!("posting query to influx at '{}': '{}'", url, payload);
 
         let request = isahc::Request::builder()
             .uri(&url)
