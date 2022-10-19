@@ -12,7 +12,7 @@ let measurement = Measurement::builder("m1")
     .tag("tag2", "tag2_value")
     .field("field1", "string_value")
     .field("field2", true)
-    .timestamp_ms(1622493622) // milliseconds since the Unix epoch
+    .timestamp_ms(1622493622000) // milliseconds since the Unix epoch
     .build()
     .unwrap();
 let response = client
