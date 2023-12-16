@@ -4,6 +4,7 @@ use std::{collections::HashMap, error::Error, fmt::Display};
 
 pub type InfluxQueryResponse = Vec<HashMap<String, String>>;
 
+#[derive(Clone)]
 pub struct InfluxClient {
     url: String,
     key: String,
@@ -106,6 +107,7 @@ impl InfluxClient {
     }
 }
 
+#[derive(Clone)]
 pub struct InfluxClientBuilder {
     url: String,
     key: String,
