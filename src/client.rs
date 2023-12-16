@@ -58,9 +58,12 @@ impl InfluxClient {
 
     pub async fn query(&self, query: Query) -> Result<InfluxQueryResponse, InfluxError> {
         let payload = query.to_string();
+        self.raw_query(&payload).await
+    }
 
+    pub async fn raw_query(&self, query: &str) -> Result<InfluxQueryResponse, InfluxError> {
         let url = format!("{}/api/v2/query?org={}", self.url, self.org);
-        trace!("posting query to influx at '{}': '{}'", url, payload);
+        trace!("posting query to influx at '{}': '{}'", url, query);
 
         let request = isahc::Request::builder()
             .uri(&url)
@@ -68,7 +71,7 @@ impl InfluxClient {
             .header("Authorization", format!("Token {}", &self.key))
             .header("Content-Type", "application/vnd.flux")
             .header("Accept", "application/csv")
-            .body(payload)?;
+            .body(query)?;
 
         let mut response = self.http_client.send_async(request).await?;
 

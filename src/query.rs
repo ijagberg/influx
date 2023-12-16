@@ -25,10 +25,7 @@ impl Query {
         let lines = query
             .into()
             .lines()
-            .map(|l| match l.strip_prefix("|>") {
-                Some(stripped) => stripped.trim().to_owned(),
-                None => l.trim().to_owned(),
-            })
+            .map(|l| l.trim().to_owned())
             .collect();
         Self { lines }
     }
@@ -42,7 +39,7 @@ impl Query {
     ///     .then(r#"filter(fn: (r) => r["_measurement"] == "example_measurement")"#);
     /// ```
     pub fn then(mut self, line: impl Into<String>) -> Self {
-        self.lines.push(line.into());
+        self.lines.push(format!(" |> {}", line.into()));
         self
     }
 }
@@ -56,7 +53,7 @@ impl Display for Query {
                 .iter()
                 .map(|l| l.to_string())
                 .collect::<Vec<_>>()
-                .join("\n |> ")
+                .join("\n")
         )
     }
 }
