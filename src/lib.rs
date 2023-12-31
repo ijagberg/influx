@@ -187,7 +187,7 @@ impl Measurement {
     fn fields_part(&self) -> String {
         self.fields
             .iter()
-            .map(|(name, value)| format!("{}={}", name, value.to_string()))
+            .map(|(name, value)| format!("{}={}", name.replace(" ", "\\ "), value.to_string()))
             .collect::<Vec<_>>()
             .join(",")
     }
