@@ -44,6 +44,7 @@ impl Display for Field {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Field::Float(v) => write!(f, "{}", v),
+            Field::String(v) if v.contains("\\") || v.contains("\"") => write!(f, r#""{}""#, v.replace("\\", "\\\\").replace("\"", "\\\"")),
             Field::String(v) => write!(f, r#""{}""#, v),
             Field::Bool(v) => write!(f, "{}", v),
             Field::Integer(v) => write!(f, "{}i", v),
