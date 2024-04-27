@@ -18,7 +18,7 @@ struct TagValue(String);
 
 impl TagValue {
     fn new(s: String) -> Self {
-        let s = s.replace(" ", "\\ ");
+        let s = s.replace(' ', "\\ ");
         Self(s)
     }
 }
@@ -186,7 +186,7 @@ impl Measurement {
     fn fields_part(&self) -> String {
         self.fields
             .iter()
-            .map(|(name, value)| format!("{}={}", name, value.to_string()))
+            .map(|(name, value)| format!("{}={}", name, value))
             .collect::<Vec<_>>()
             .join(",")
     }
