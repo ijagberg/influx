@@ -18,7 +18,10 @@ struct TagValue(String);
 
 impl TagValue {
     fn new(s: String) -> Self {
-        let s = s.replace(' ', "\\ ");
+        let s = s
+            .replace(',', "\\,")
+            .replace('=', "\\=")
+            .replace(' ', "\\ ");
         Self(s)
     }
 }
@@ -353,6 +356,21 @@ mod tests {
                 .collect(),
                 timestamp_ms: 1602321877560
             }
+        );
+    }
+
+    #[test]
+    fn measurement_escaping() {
+        let m = Measurement::builder("example_measurement")
+            .tag("agent", "KHTML, like Gecko")
+            .field("count", 1.0)
+            .timestamp_ms(1602321877560)
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            m.to_line_protocol(),
+            r#"example_measurement,agent=KHTML\,\ like\ Gecko count=1 1602321877560"#,
         );
     }
 }
