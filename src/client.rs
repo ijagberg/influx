@@ -1,5 +1,6 @@
-use crate::{query::Query, Measurement};
+use crate::Measurement;
 use isahc::{AsyncReadResponseExt, HttpClient};
+use query::Query;
 use std::{collections::HashMap, error::Error, fmt::Display};
 
 pub type InfluxQueryResponse = Vec<HashMap<String, String>>;
@@ -41,8 +42,6 @@ impl InfluxClient {
             self.url, self.org, bucket
         );
 
-        trace!("posting payload to influx at '{}': '{}'", url, payload);
-
         let request = isahc::Request::builder()
             .uri(url)
             .method("POST")
@@ -60,7 +59,6 @@ impl InfluxClient {
         let payload = query.to_string();
 
         let url = format!("{}/api/v2/query?org={}", self.url, self.org);
-        trace!("posting query to influx at '{}': '{}'", url, payload);
 
         let request = isahc::Request::builder()
             .uri(&url)
@@ -79,8 +77,6 @@ impl InfluxClient {
         }
 
         let body = response.text().await?;
-
-        trace!("response body: '{}'", body);
 
         let lines: Vec<String> = body.lines().map(|l| l.trim().to_owned()).collect();
         let tables: Vec<_> = lines
@@ -183,5 +179,69 @@ impl Error for InfluxClientBuilderError {}
 impl Display for InfluxClientBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "error building influx client")
+    }
+}
+
+pub(crate) mod query {
+    use std::fmt::Display;
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Query {
+        lines: Vec<String>,
+    }
+
+    impl Query {
+        pub fn new(line: impl Into<String>) -> Self {
+            let lines = vec![line.into()];
+            Self { lines }
+        }
+
+        /// Create a query from a raw string.
+        ///
+        /// ## Example
+        /// ```rust
+        /// # use influxrs::Query;
+        /// let query = Query::raw(r#"from(bucket: "server")
+        ///     |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+        ///     |> filter(fn: (r) => r["_measurement"] == "example_measurement")
+        ///     |> keys()"#);
+        /// ```
+        pub fn raw(query: impl Into<String>) -> Self {
+            let lines = query
+                .into()
+                .lines()
+                .map(|l| match l.strip_prefix("|>") {
+                    Some(stripped) => stripped.trim().to_owned(),
+                    None => l.trim().to_owned(),
+                })
+                .collect();
+            Self { lines }
+        }
+
+        /// Append a line to the query.
+        ///
+        /// ## Example
+        /// ```rust
+        /// # use influxrs::Query;
+        /// let query = Query::new(r#"from(bucket: "example_bucket")"#)
+        ///     .then(r#"filter(fn: (r) => r["_measurement"] == "example_measurement")"#);
+        /// ```
+        pub fn then(mut self, line: impl Into<String>) -> Self {
+            self.lines.push(line.into());
+            self
+        }
+    }
+
+    impl Display for Query {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "{}",
+                self.lines
+                    .iter()
+                    .map(|l| l.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n |> ")
+            )
+        }
     }
 }
