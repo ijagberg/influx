@@ -1,10 +1,10 @@
-## Creating a client
+# influxrs
 
-```rust
-let client = InfluxClient::builder("www.example.com", "example-key", "example-org").build().unwrap();
-```
+This crate contains some useful structs for publishing data to, and reading data from InfluxDB.
 
-## Writing data
+## Model
+
+The `Measurement` struct represents a single measurement in Influx. Recommended way to create a `Measurement` is to use the `Measurement::builder` function.
 
 ```rust
 let measurement = Measurement::builder("m1")
@@ -15,6 +15,24 @@ let measurement = Measurement::builder("m1")
     .timestamp_ms(1622493622000) // milliseconds since the Unix epoch
     .build()
     .unwrap();
+// convert it to InfluxDB line protocol
+let line = measurement.to_line_protocol();
+```
+
+## Client
+
+Enable the `client` feature to gain access to a very simple client struct that simplifies writing and reading data from a specified InfluxDB instance. This client is very rudimentary, and it might be better to just use a regular HTTP client instead.
+
+### Creating a client
+
+```rust
+let client = InfluxClient::builder("www.example.com", "example-key", "example-org").build().unwrap();
+```
+
+### Writing data
+
+```rust
+let measurement =
 let response = client
     .write("example-bucket", &[measurement]) // can post a batch if we want
     .await
@@ -36,17 +54,17 @@ let response = client
 
 When querying data, a `Vec<HashMap<String, String>>` is returned, containing individual csv records:
 
-```
+```json
 {
-    "result": "_result",
-    "_value": "string_value",
-    "table": "0",
-    "_start": "2021-06-01T11:13:15Z",
-    "_field": "field1",
-    "tag1": "tag1_value",
-    "tag2": "tag2_value",
-    "_time": "2021-06-01T11:16:05.684Z",
-    "_measurement": "m1",
-    "_stop": "2021-06-01T11:23:15Z",
+  "result": "_result",
+  "_value": "string_value",
+  "table": "0",
+  "_start": "2021-06-01T11:13:15Z",
+  "_field": "field1",
+  "tag1": "tag1_value",
+  "tag2": "tag2_value",
+  "_time": "2021-06-01T11:16:05.684Z",
+  "_measurement": "m1",
+  "_stop": "2021-06-01T11:23:15Z"
 }
 ```

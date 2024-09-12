@@ -12,12 +12,15 @@ homepage = "https://github.com/ijagberg/influx"
 
 [dependencies]
 log = "0.4.8"
-serde = { version = "1.0.116", features = ["derive"] }
-csv = "1.1.6"
-isahc = "1.4.0"
+serde = { version = "1.0.210", features = ["derive"] }
+csv = "1.3.0"
+isahc = { version = "1.7.2", optional = true }
+
+[features]
+client = ["dep:isahc"]
 
 [dev-dependencies]
-tokio = { version = "1.3.0", features = ["full"] }
+tokio = { version = "1.40.0", features = ["full"] }
 dotenv = "0.15.0"
 pretty_env_logger = "0.4.0"
 

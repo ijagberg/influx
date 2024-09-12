@@ -1,5 +1,3 @@
-pub use client::{InfluxClient, InfluxClientBuilder, InfluxClientBuilderError, InfluxError};
-pub use query::Query;
 use std::{
     collections::HashMap,
     error::Error,
@@ -7,11 +5,12 @@ use std::{
     time::{SystemTime, SystemTimeError},
 };
 
+#[cfg(feature = "client")]
 mod client;
-mod query;
-
-#[macro_use]
-extern crate log;
+#[cfg(feature = "client")]
+pub use client::{
+    query::Query, InfluxClient, InfluxClientBuilder, InfluxClientBuilderError, InfluxError,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 struct TagValue(String);
@@ -371,6 +370,22 @@ mod tests {
         assert_eq!(
             m.to_line_protocol(),
             r#"example_measurement,agent=KHTML\,\ like\ Gecko count=1 1602321877560"#,
+        );
+    }
+
+    #[test]
+    fn readme_test() {
+        let measurement = Measurement::builder("m1")
+            .tag("tag1", "tag1_value")
+            .tag("tag2", "tag2_value")
+            .field("field1", "string_value")
+            .field("field2", true)
+            .timestamp_ms(1622493622000) // milliseconds since the Unix epoch
+            .build()
+            .unwrap();
+        assert_eq!(
+            measurement.to_line_protocol(),
+            r#"m1,tag2=tag2_value,tag1=tag1_value field1="string_value",field2=true 1622493622000"#
         );
     }
 }
