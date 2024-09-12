@@ -21,7 +21,9 @@ let line = measurement.to_line_protocol();
 
 ## Client
 
-Enable the `client` feature to gain access to a very simple client struct that simplifies writing and reading data from a specified InfluxDB instance. This client is very rudimentary, and it might be better to just use a regular HTTP client instead.
+**WARNING:** The client is very rudimentary (it is just a thin and dumb wrapper around an HTTP client), and it is probably better to just write your own instead.
+
+Enable the `client` feature to gain access to a very simple client struct that simplifies writing and reading data from a specified InfluxDB instance.
 
 ### Creating a client
 
@@ -32,7 +34,6 @@ let client = InfluxClient::builder("www.example.com", "example-key", "example-or
 ### Writing data
 
 ```rust
-let measurement =
 let response = client
     .write("example-bucket", &[measurement]) // can post a batch if we want
     .await

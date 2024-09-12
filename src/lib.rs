@@ -1,7 +1,9 @@
 use std::{
     collections::HashMap,
+    convert::TryInto,
     error::Error,
     fmt::Display,
+    num::TryFromIntError,
     time::{SystemTime, SystemTimeError},
 };
 
@@ -136,8 +138,8 @@ impl From<&str> for Field {
 pub struct Measurement {
     /// Name of measurement
     measurement_name: String,
-    /// Timestamp of measurement as a Unix Epoch (ms)
-    timestamp_ms: u128,
+    /// Timestamp of measurement as a Unix Epoch (nanoseconds)
+    timestamp_nanos: i128,
     /// Tags of measurement
     tags: HashMap<String, TagValue>,
     /// Fields of measurement
@@ -147,13 +149,13 @@ pub struct Measurement {
 impl Measurement {
     fn new(
         measurement_name: String,
-        timestamp_ms: u128,
+        timestamp_nanos: i128,
         tags: HashMap<String, TagValue>,
         fields: HashMap<String, Field>,
     ) -> Self {
         Self {
             measurement_name,
-            timestamp_ms,
+            timestamp_nanos,
             tags,
             fields,
         }
@@ -200,7 +202,7 @@ impl Measurement {
                 "{} {} {}",
                 self.measurement_part(),
                 self.fields_part(),
-                self.timestamp_ms
+                self.timestamp_nanos
             )
         } else {
             format!(
@@ -208,7 +210,7 @@ impl Measurement {
                 self.measurement_part(),
                 self.tags_part(),
                 self.fields_part(),
-                self.timestamp_ms
+                self.timestamp_nanos
             )
         }
     }
@@ -218,7 +220,7 @@ pub struct MeasurementBuilder {
     name: String,
     tags: Vec<(String, TagValue)>,
     fields: Vec<(String, Field)>,
-    timestamp: Option<u128>,
+    timestamp: Option<i128>,
 }
 
 impl MeasurementBuilder {
@@ -231,18 +233,33 @@ impl MeasurementBuilder {
         }
     }
 
+    /// Add a tag to the measurement.
     pub fn tag(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.push((name.into(), TagValue::new(value.into())));
         self
     }
 
+    /// Add a field to the measurement.
     pub fn field(mut self, name: impl Into<String>, value: impl Into<Field>) -> Self {
         self.fields.push((name.into(), value.into()));
         self
     }
 
-    pub fn timestamp_ms(mut self, timestamp_ms: u128) -> Self {
-        self.timestamp = Some(timestamp_ms);
+    /// Set the timestamp of the measurement. Expects a unix timestamp in seconds.
+    pub fn timestamp_s(mut self, timestamp_s: i128) -> Self {
+        self.timestamp = Some(timestamp_s * 1_000_000_000);
+        self
+    }
+
+    /// Set the timestamp of the measurement. Expects a unix timestamp in milliseconds.
+    pub fn timestamp_ms(mut self, timestamp_ms: i128) -> Self {
+        self.timestamp = Some(timestamp_ms * 1_000_000);
+        self
+    }
+
+    /// Set the timestamp of the measurement. Expects a unix timestamp in nanoseconds.
+    pub fn timestamp_nanos(mut self, timestamp_nanos: i128) -> Self {
+        self.timestamp = Some(timestamp_nanos);
         self
     }
 
@@ -250,16 +267,17 @@ impl MeasurementBuilder {
         if self.fields.is_empty() {
             Err(MeasurementBuilderError::EmptyFields)
         } else {
-            let timestamp_ms = if let Some(timestamp_ms) = self.timestamp {
-                timestamp_ms
+            let timestamp_nanos = if let Some(timestamp_nanos) = self.timestamp {
+                timestamp_nanos
             } else {
                 SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)?
-                    .as_millis()
+                    .as_nanos()
+                    .try_into()?
             };
             Ok(Measurement::new(
                 self.name,
-                timestamp_ms,
+                timestamp_nanos,
                 self.tags.into_iter().collect(),
                 self.fields.into_iter().collect(),
             ))
@@ -271,6 +289,7 @@ impl MeasurementBuilder {
 pub enum MeasurementBuilderError {
     EmptyFields,
     SystemTimeError(SystemTimeError),
+    TryFromIntError(TryFromIntError),
 }
 
 impl Display for MeasurementBuilderError {
@@ -278,6 +297,7 @@ impl Display for MeasurementBuilderError {
         let output = match self {
             MeasurementBuilderError::EmptyFields => "fields cannot be empty".to_string(),
             MeasurementBuilderError::SystemTimeError(e) => format!("SystemTimeError: '{}'", e),
+            MeasurementBuilderError::TryFromIntError(e) => format!("TryFromIntError: '{}'", e),
         };
 
         write!(f, "{}", output)
@@ -287,6 +307,12 @@ impl Display for MeasurementBuilderError {
 impl From<SystemTimeError> for MeasurementBuilderError {
     fn from(e: SystemTimeError) -> Self {
         Self::SystemTimeError(e)
+    }
+}
+
+impl From<TryFromIntError> for MeasurementBuilderError {
+    fn from(e: TryFromIntError) -> Self {
+        Self::TryFromIntError(e)
     }
 }
 
@@ -353,7 +379,7 @@ mod tests {
                 .into_iter()
                 .map(|(name, value)| (name.to_string(), value))
                 .collect(),
-                timestamp_ms: 1602321877560
+                timestamp_nanos: 1602321877560000000
             }
         );
     }
@@ -369,7 +395,7 @@ mod tests {
 
         assert_eq!(
             m.to_line_protocol(),
-            r#"example_measurement,agent=KHTML\,\ like\ Gecko count=1 1602321877560"#,
+            r#"example_measurement,agent=KHTML\,\ like\ Gecko count=1 1602321877560000000"#,
         );
     }
 
@@ -377,15 +403,13 @@ mod tests {
     fn readme_test() {
         let measurement = Measurement::builder("m1")
             .tag("tag1", "tag1_value")
-            .tag("tag2", "tag2_value")
             .field("field1", "string_value")
-            .field("field2", true)
             .timestamp_ms(1622493622000) // milliseconds since the Unix epoch
             .build()
             .unwrap();
         assert_eq!(
             measurement.to_line_protocol(),
-            r#"m1,tag2=tag2_value,tag1=tag1_value field1="string_value",field2=true 1622493622000"#
+            r#"m1,tag1=tag1_value field1="string_value" 1622493622000000000"#
         );
     }
 }

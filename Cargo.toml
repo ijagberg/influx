@@ -18,11 +18,13 @@ isahc = { version = "1.7.2", optional = true }
 
 [features]
 client = ["dep:isahc"]
+static = ["client", "isahc/static-ssl", "isahc/static-curl"]
 
 [dev-dependencies]
 tokio = { version = "1.40.0", features = ["full"] }
 dotenv = "0.15.0"
 pretty_env_logger = "0.4.0"
 
-[features]
-static = ["isahc/static-ssl", "isahc/static-curl"]
+[[example]]
+name = "send_data"
+required-features = ["client"]
