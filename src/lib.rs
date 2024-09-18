@@ -285,10 +285,14 @@ impl MeasurementBuilder {
     }
 }
 
+/// The error type returned when building a `Measurement` fails.
 #[derive(Debug)]
 pub enum MeasurementBuilderError {
+    /// No fields were provided in the measurement.
     EmptyFields,
+    /// Getting the current unix timestamp (because one wasn't provided) failed.
     SystemTimeError(SystemTimeError),
+    /// Converting the current unix timestamp from `u128` to `i128` failed.
     TryFromIntError(TryFromIntError),
 }
 
