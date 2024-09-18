@@ -1,7 +1,7 @@
 [package]
 name = "influxrs"
 description = "Provides data types for writing and reading data from InfluxDB 2.0"
-version = "2.1.0"
+version = "3.0.0"
 authors = ["Isak Jägberg <ijagberg@gmail.com>"]
 edition = "2018"
 license = "MIT"
