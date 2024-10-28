@@ -38,7 +38,7 @@ impl InfluxClient {
             .collect::<Vec<_>>()
             .join("\n");
         let url = format!(
-            "{}/api/v2/write?org={}&bucket={}&precision=ms",
+            "{}/api/v2/write?org={}&bucket={}&precision=ns",
             self.url, self.org, bucket
         );
 
